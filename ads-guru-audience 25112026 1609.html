@@ -1,0 +1,1885 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ads Guru Audience — ค้น detailed targeting ของ Meta</title>
+    <style>
+      /* ============================================================
+         ไฟล์เดียวจบ — ไม่มี build ไม่มี dependency เปิดด้วยเบราว์เซอร์ตรง ๆ
+         ยิง graph.facebook.com จากเบราว์เซอร์โดยตรง (Meta ส่ง CORS มาให้)
+         token อยู่ในเครื่องคนใช้ ไม่ได้ส่งไปที่ server ไหนทั้งนั้น
+         ============================================================ */
+      :root {
+        --yellow: #fdd205;
+        --yellow-dim: #ebc300;
+        --yellow-tint: #fffbe6;
+        --ink: #1a1a1b;
+        --border: #e2e4e6;
+        --well: #f8f9f9;
+        --surface: #fff;
+        --text: #1a1a1b;
+        --muted: #6b7178;
+        --good: #16a34a;
+        --bad: #ba1a1a;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: "Work Sans", "Noto Sans Thai", system-ui, -apple-system, sans-serif;
+        background: var(--well);
+        color: var(--text);
+        line-height: 1.55;
+        padding: 20px;
+      }
+      .wrap { max-width: 1400px; margin: 0 auto; }
+      h1 { font-size: 26px; margin-bottom: 2px; }
+      h1 .accent { color: var(--yellow-dim); }
+      .sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+      }
+      .warn { border-left: 4px solid var(--yellow-dim); background: var(--yellow-tint); }
+      .bad { color: var(--bad); }
+      .foot { font-size: 12px; color: var(--muted); }
+      label { font-size: 14px; color: var(--muted); }
+      input, select, button, textarea { font: inherit; }
+      input[type="text"], input[type="password"], input[type="number"], select, textarea {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--yellow-dim); }
+      textarea { width: 100%; resize: vertical; line-height: 1.5; }
+      .tag.sug { background: #fff7ed; color: #9a3412; }
+      .brief-lbl { font-weight: 600; font-size: 14px; display: block; margin-bottom: 8px; }
+      button {
+        padding: 9px 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) { background: var(--well); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.primary { background: var(--yellow); border-color: var(--yellow-dim); font-weight: 600; }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .grow { flex: 1; min-width: 200px; }
+
+      /* ---- แถบ token ---- */
+      #tokenCard .row + .row { margin-top: 10px; }
+      #acct { min-width: 260px; }
+
+      /* ---- กลุ่มเป้าหมาย ---- */
+      #aud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; background: var(--well); }
+      #aud .lbl { font-weight: 600; color: var(--text); font-size: 14px; }
+      #aud label { display: flex; align-items: center; gap: 6px; }
+      #aud input[type="number"] { width: 64px; text-align: center; }
+
+      /* ---- ผัง ---- */
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 12px; align-items: start; }
+      @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+      .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+      .head h3 { font-size: 16px; }
+      .count { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
+      .filters { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+      .filters label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+      /* ---- ตาราง ---- */
+      table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px; }
+      th {
+        text-align: left; font-weight: 600; font-size: 12px; color: var(--muted);
+        padding: 0 10px 8px; border-bottom: 1px solid var(--border);
+      }
+      td { padding: 11px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+      tbody tr { cursor: pointer; }
+      tbody tr:hover { background: var(--well); }
+      tbody tr.on { background: var(--yellow-tint); }
+      tbody tr.blocked { opacity: 0.55; cursor: not-allowed; }
+      tbody tr.blocked:hover { background: transparent; }
+      .nm { font-weight: 600; }
+      .desc { margin-top: 2px; font-size: 12px; color: var(--muted); }
+      .size { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+      .th { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; }
+      .bar { height: 4px; margin-top: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+      .bar i { display: block; height: 100%; background: var(--good); border-radius: 2px; }
+      .err {
+        display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center;
+        border-radius: 50%; background: var(--bad); color: #fff; font-size: 12px; cursor: help;
+      }
+      .tag {
+        display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 20px;
+        font-size: 11px; font-weight: 600; vertical-align: middle;
+      }
+      .tag.kind { background: #eef2ff; color: #4338ca; }
+      .tag.weak { background: var(--well); color: var(--muted); font-weight: 400; }
+      .pill {
+        display: inline-block; padding: 3px 10px; border-radius: 20px; background: var(--well);
+        border: 1px solid var(--border); font-size: 12px; color: var(--muted); white-space: nowrap;
+      }
+      .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; background: var(--well); border-radius: 10px; }
+
+      /* ---- ตะกร้า ---- */
+      #cart { position: sticky; top: 12px; }
+      .total { padding: 14px 16px; margin-bottom: 12px; border-radius: 12px; background: var(--well); border: 1px solid var(--border); }
+      .total .lbl { font-size: 12px; color: var(--muted); }
+      .total b { display: block; margin-top: 2px; font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+      .total.ok { background: linear-gradient(180deg, #f0fdf4, #fff); border-color: #bbf7d0; }
+      .total.ok b { color: #15803d; }
+      .total.small { background: linear-gradient(180deg, #fffbeb, #fff); border-color: #fde68a; }
+      .total.small b { color: #b45309; }
+      .total.tiny { background: linear-gradient(180deg, #fef2f2, #fff); border-color: #fecaca; }
+      .total.tiny b { color: var(--bad); }
+      .total .tagline { margin-left: 8px; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: rgb(0 0 0 / 7%); }
+      .total .hint { display: block; margin-top: 6px; font-size: 12px; color: var(--text); }
+      .grp + .grp { margin-top: 10px; padding-top: 10px; border-top: 2px dashed var(--border); }
+      .grp-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--muted); }
+      .grp-head .op { padding: 1px 8px; border-radius: 20px; background: var(--well); border: 1px solid var(--border); color: var(--text); }
+      ul { list-style: none; }
+      #cart li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+      .mini { border: 0; background: none; padding: 2px 6px; border-radius: 6px; color: var(--muted); cursor: pointer; }
+      .mini:hover { background: var(--yellow-tint); color: var(--ink); }
+      .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+      .save { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+      .sets { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+      .sets li { cursor: pointer; }
+      .sets .meta { font-size: 11px; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>🎯 Ads Guru <span class="accent">Audience</span></h1>
+      <div class="sub">ค้นคลัง detailed targeting ของ Meta — อ่านอย่างเดียว ไม่แตะบัญชีโฆษณาจริง</div>
+
+      <!-- ============ token ============ -->
+      <div class="card warn" id="tokenCard">
+        <div class="row">
+          <!-- ใช้ type=text ไม่ใช่ password — บางเบราว์เซอร์/กรอบพรีวิวบล็อกการวางใน
+               ช่องรหัสผ่าน และคนใช้ควรเห็นว่าวางครบไหมด้วย · มีปุ่มซ่อนให้ถ้าต้องการ -->
+          <input type="text" id="token" class="grow" spellcheck="false" autocomplete="off"
+            placeholder="วาง Access Token ของคุณที่นี่ (ขึ้นต้นด้วย EAA...)" />
+          <button id="mask" title="ซ่อน/แสดง token">👁</button>
+          <button class="primary" id="connect">เชื่อมต่อ</button>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="remember" /> จำไว้ในเบราว์เซอร์นี้</label>
+          <select id="acct"><option value="">— เลือกบัญชีโฆษณา —</option></select>
+          <span class="foot" id="tokenState"></span>
+        </div>
+        <div class="row">
+          <span class="foot">
+            🔒 token อยู่ในเครื่องคุณเท่านั้น ไม่ถูกส่งไปที่ไหนนอกจาก Meta โดยตรง ·
+            <b>อย่าส่งไฟล์นี้ต่อหลังใส่ token แล้ว</b> — ให้คนรับใส่ token ของตัวเอง ·
+            สร้าง token ได้ที่
+            <a href="https://developers.facebook.com/tools/explorer" target="_blank" rel="noreferrer">Graph API Explorer</a>
+            (สิทธิ์ <code>ads_read</code>)
+          </span>
+        </div>
+      </div>
+
+      <!-- ============ ค้นหา ============ -->
+      <div class="card">
+        <div class="row">
+          <input type="text" id="q" class="grow" placeholder="พิมพ์คำค้น ไทยหรืออังกฤษก็ได้ เช่น  ภูมิแพ้  หรือ  Beauty" />
+          <button class="primary" id="go" disabled>🔎 ค้นหา</button>
+        </div>
+        <div class="foot" style="margin-top: 8px">ชื่อที่ได้เป็นอังกฤษเสมอ — ชื่อเดียวกับที่คนยิงเห็นใน Ads Manager</div>
+        <div id="used" style="margin-top: 8px"></div>
+      </div>
+
+      <!-- ============ แนะนำจากบรีฟ ============ -->
+      <div class="card">
+        <span class="brief-lbl">✨ หรือเขียนกลุ่มเป้าหมายเป็นประโยค</span>
+        <textarea id="brief" rows="2" spellcheck="false"
+          placeholder="เช่น  แม่บ้าน ซื้อของออนไลน์ สนใจสุขภาพ ลดน้ำหนัก  ·  คั่นด้วยคอมมาหรือขึ้นบรรทัดใหม่ก็ได้"></textarea>
+        <div class="row" style="margin-top: 8px">
+          <button class="primary" id="briefGo" disabled>✨ หา detailed targeting ให้</button>
+          <span class="foot">แยกคำในบรีฟไปค้นทีละคำ แล้วขอ “ตัวใกล้เคียง” จาก Meta ต่อ แล้วติ๊กตัวที่ดีที่สุดให้เลย</span>
+        </div>
+        <div id="briefTerms" style="margin-top: 10px"></div>
+      </div>
+
+      <!-- ============ ให้ AI ข้างนอกเลือกให้ ============ -->
+      <div class="card">
+        <span class="brief-lbl">🧠 หรือให้ ChatGPT / Gemini เลือกให้</span>
+        <div class="row">
+          <button id="dumpGo" disabled>📥 ส่งออกแคตตาล็อก</button>
+          <button id="growGo" disabled>🔍 ขยายคลัง</button>
+          <button id="sweepGo" disabled>🧹 กวาดทั้งคลัง</button>
+          <button id="saveGo" disabled>💾 บันทึกไฟล์</button>
+          <button id="promptGo">📋 ก๊อปคำสั่งสำหรับ AI</button>
+          <span class="foot" id="dumpState">โหลดคลัง detailed targeting ของบัญชีนี้เป็นไฟล์ CSV — เอาไปแนบใน ChatGPT/Gemini พร้อมบรีฟ แล้วให้มันเลือกชื่อมา</span>
+        </div>
+        <textarea id="paste" rows="3" spellcheck="false" style="margin-top: 10px"
+          placeholder="วางชื่อที่ AI เลือกมาตรงนี้ — บรรทัดละชื่อ หรือคั่นด้วยคอมมา"></textarea>
+        <div class="row" style="margin-top: 8px">
+          <button class="primary" id="pasteGo" disabled>✅ ตรวจชื่อ แล้วคิดจำนวนคน</button>
+          <span class="foot">แปลงชื่อเป็น id ให้เอง · ชื่อที่ไม่มีอยู่จริงจะถูกแยกออกมาบอกให้ชัด ไม่กลืนหายไปเฉย ๆ</span>
+        </div>
+        <div id="pasteReport" style="margin-top: 10px"></div>
+      </div>
+
+      <!-- ============ กลุ่มเป้าหมาย ============ -->
+      <div class="card" id="aud">
+        <span class="lbl">กลุ่มเป้าหมาย</span>
+        <label>อายุ <input type="number" id="ageMin" min="13" max="65" value="20" /> – <input type="number" id="ageMax" min="13" max="65" value="65" /></label>
+        <label>เพศ
+          <select id="gender"><option value="all">ทุกเพศ</option><option value="female">หญิง</option><option value="male">ชาย</option></select>
+        </label>
+        <label>พื้นที่ <select id="area"></select></label>
+        <span class="foot">65 = 65 ปีขึ้นไป · ตัวเลขคนในไทยคิดตามค่าที่ตั้งตรงนี้</span>
+      </div>
+
+      <div id="note"></div>
+
+      <div class="layout">
+        <!-- ============ ผลลัพธ์ ============ -->
+        <div class="card">
+          <div class="head">
+            <h3>ผลที่ได้ <span class="count" id="cnt"></span></h3>
+            <span class="filters">
+              <label><input type="checkbox" id="hideWeak" checked /> ซ่อนตัวที่เกี่ยวน้อย</label>
+              <label><input type="checkbox" id="hideSmall" checked /> ซ่อนกลุ่มเล็กกว่า 50k (ในไทย)</label>
+            </span>
+          </div>
+          <div id="results"><div class="empty">🔍 ใส่ token แล้วพิมพ์คำค้นด้านบน</div></div>
+        </div>
+
+        <!-- ============ ตะกร้า ============ -->
+        <div class="card" id="cart">
+          <div class="head"><h3>Selection <span class="count" id="pickCnt"></span></h3></div>
+          <div id="cartBody"><div class="empty">กดแถวในตารางเพื่อเก็บไว้ที่นี่</div></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* ============================================================
+         ค่าคงที่
+         ============================================================ */
+      const V = "v21.0";
+      const EN = "en_US";
+      const SMALL_MIN = 50000;
+      const WEAK_MAX = 15;
+      const ROW_REACH_MAX = 12;
+      const LS_TOKEN = "aint.token";
+      const LS_ACCT = "aint.acct";
+      const LS_SETS = "aint.sets";
+
+      /* ช่องใน flexible_spec ที่คิดจำนวนคนได้ — ชนิดนอกรายการนี้จะถูกตัดออกจาก spec
+         ไม่ใช่เดาว่าเป็น interests เพราะใส่ผิดช่องทีเดียว Graph ทิ้งทั้งคำขอ */
+      const KIND_FIELDS = new Set([
+        "interests", "behaviors", "industries", "income", "family_statuses", "relationship_statuses",
+        "life_events", "education_majors", "education_schools", "education_statuses",
+        "work_positions", "work_employers", "generation", "home_ownership", "moms",
+        "office_type", "politics", "user_adclusters",
+      ]);
+
+      const KIND_LABEL = {
+        behaviors: "พฤติกรรม", education_majors: "สาขาที่เรียน", education_schools: "สถานศึกษา",
+        education_statuses: "ระดับการศึกษา", work_positions: "ตำแหน่งงาน", work_employers: "ที่ทำงาน",
+        industries: "อุตสาหกรรม", life_events: "ช่วงชีวิต", income: "รายได้",
+        family_statuses: "สถานะครอบครัว", relationship_statuses: "สถานะความสัมพันธ์",
+        generation: "เจเนอเรชัน", home_ownership: "ที่อยู่อาศัย", moms: "คุณแม่", politics: "การเมือง",
+      };
+
+      /* ชั้นบนสุดของ path บอกว่าแถวนี้เป็นของชนิดไหน — Meta ส่งของหลายชนิดปนมาในผลค้น */
+      const KIND_BY_PATH = {
+        interests: "interests", "additional interests": "interests", behaviors: "behaviors",
+        "purchase behavior": "behaviors", "fields of study": "education_majors",
+        "education and workplace": "education_majors", schools: "education_schools",
+        "job titles": "work_positions", employers: "work_employers", industries: "industries",
+        "life events": "life_events", demographics: "life_events",
+      };
+
+      /* พื้นที่ — เก็บเป็นชื่อจังหวัด ไม่ฮาร์ดโค้ดรหัส เพราะรหัสของ Meta เดาไม่ได้
+         ไปถาม adgeolocation เอาตอนใช้จริงแล้วจำไว้ */
+      const AREAS = {
+        th: { label: "ทั่วประเทศไทย", en: "Thailand (nationwide)", provinces: null },
+        bkk: { label: "กรุงเทพฯ อย่างเดียว", en: "Bangkok only", provinces: ["Bangkok"] },
+        bkk_metro: {
+          label: "กรุงเทพฯ และปริมณฑล (นนทบุรี, ปทุมธานี, สมุทรปราการ, สมุทรสาคร, นครปฐม)",
+          en: "Bangkok & vicinity (Nonthaburi, Pathum Thani, Samut Prakan, Samut Sakhon, Nakhon Pathom)",
+          provinces: ["Bangkok", "Nonthaburi", "Pathum Thani", "Samut Prakan", "Samut Sakhon", "Nakhon Pathom"],
+        },
+        bkk_major: {
+          label: "กรุงเทพฯ และจังหวัดหัวเมือง (เชียงใหม่, ชลบุรี, นครราชสีมา, ขอนแก่น, สงขลา, ภูเก็ต, สุราษฎร์ธานี, อุดรธานี, เชียงราย)",
+          en: "Bangkok & major provinces (Chiang Mai, Chon Buri, Nakhon Ratchasima, Khon Kaen, Songkhla, Phuket, Surat Thani, Udon Thani, Chiang Rai)",
+          provinces: ["Bangkok", "Chiang Mai", "Chon Buri", "Nakhon Ratchasima", "Khon Kaen", "Songkhla", "Phuket", "Surat Thani", "Udon Thani", "Chiang Rai"],
+        },
+      };
+      const BKK_CITY = "2242475"; // คีย์เมืองกรุงเทพฯ จาก targeting จริง — ตัวสำรองเมื่อหารหัสจังหวัดไม่ได้
+
+      /* คำที่จับตัวอักษรแล้วได้ขยะ หรือคำไทยที่คลังของ Meta (ซึ่งเป็นอังกฤษ) ไม่มี */
+      const SEED = {
+        rich: ["Luxury goods", "Luxury vehicles", "Investment", "Jewelry"],
+        wealthy: ["Luxury goods", "Investment"],
+        affluent: ["Luxury goods", "Luxury vehicles"],
+        luxury: ["Luxury goods", "Luxury vehicles", "Fashion accessories"],
+        คนรวย: ["Luxury goods", "Luxury vehicles", "Investment"],
+        หรูหรา: ["Luxury goods", "Luxury vehicles"],
+        ภูมิแพ้: ["Allergy", "Allergic rhinitis", "Air purifier", "Health & wellness"],
+        ฝุ่น: ["Air purifier", "Air pollution", "Allergy", "Dust mite"],
+        มลพิษ: ["Air pollution", "Environmentalism"],
+        วิตามิน: ["Vitamin", "Dietary supplement", "Nutrition"],
+        อาหารเสริม: ["Dietary supplement", "Nutrition", "Health & wellness"],
+        ออกกำลังกาย: ["Physical fitness", "Exercise", "Gym"],
+        ลดน้ำหนัก: ["Weight loss", "Dieting", "Physical fitness"],
+        ยาสีฟัน: ["Toothpaste", "Oral hygiene", "Dentistry"],
+        แปรงสีฟัน: ["Toothbrush", "Oral hygiene"],
+        ช่องปาก: ["Oral hygiene", "Dentistry"],
+        ความงาม: ["Beauty", "Cosmetics", "Skin care"],
+        ผิว: ["Skin care", "Beauty"],
+        ผิวแพ้ง่าย: ["Sensitive skin", "Skin care", "Allergy"],
+        ผิวแห้ง: ["Moisturizer", "Skin care", "Beauty"],
+        สิว: ["Acne", "Skin care"],
+        ครีมกันแดด: ["Sunscreen", "Skin care"],
+        เครื่องสำอาง: ["Cosmetics", "Beauty"],
+        แชมพู: ["Shampoo", "Hair care"],
+        ผมร่วง: ["Hair loss", "Hair care"],
+        รังแค: ["Dandruff", "Hair care"],
+        กลิ่นตัว: ["Deodorant", "Personal care"],
+        ผงซักฟอก: ["Laundry detergent", "Laundry", "Housekeeping"],
+        น้ำยาปรับผ้านุ่ม: ["Fabric softener", "Laundry"],
+        ซักผ้า: ["Laundry", "Washing machine"],
+        ทำความสะอาด: ["Cleaning", "Housekeeping"],
+        แม่บ้าน: ["Housekeeping", "Homemaking", "Motherhood"],
+        ครัว: ["Kitchen", "Cooking", "Home appliance"],
+        ของใช้ในบ้าน: ["Housekeeping", "Home improvement"],
+        ขนม: ["Snack", "Confectionery", "Food and drink"],
+        กาแฟ: ["Coffee", "Cafe", "Espresso"],
+        ชา: ["Tea", "Green tea"],
+        อาหาร: ["Food and drink", "Cooking", "Restaurants"],
+        ทำอาหาร: ["Cooking", "Recipes", "Food and drink"],
+        อาหารคลีน: ["Healthy diet", "Organic food", "Nutrition"],
+        แม่ลูกอ่อน: ["Motherhood", "Parenting", "Baby products", "Infant"],
+        แม่และเด็ก: ["Motherhood", "Parenting", "Baby products"],
+        คุณแม่: ["Motherhood", "Parenting"],
+        ตั้งครรภ์: ["Pregnancy", "Motherhood", "Parenting"],
+        ทารก: ["Infant", "Baby products", "Parenting"],
+        เด็ก: ["Parenting", "Children", "Motherhood"],
+        ครอบครัว: ["Family", "Family and relationships"],
+        ผ้าอ้อม: ["Diaper", "Baby products", "Parenting"],
+        วัยรุ่น: ["Teenager", "Youth"],
+        นักเรียน: ["Student", "Education", "School"],
+        นักศึกษา: ["Student", "University", "Education"],
+        ผู้สูงอายุ: ["Retirement", "Health & wellness", "Family"],
+        พนักงานออฟฟิศ: ["Office", "Business", "Coffee"],
+        คนรักสุขภาพ: ["Health & wellness", "Physical fitness", "Healthy diet"],
+        ช้อปปิ้ง: ["Shopping", "Online shopping"],
+        ลดราคา: ["Discount store", "Coupon", "Deal of the day"],
+        ประหยัด: ["Discount store", "Coupon", "Deal of the day"],
+        ออนไลน์: ["Online shopping", "E-commerce"],
+        สัตว์เลี้ยง: ["Pet", "Dog", "Cat"],
+        รถยนต์: ["Cars", "Automobile"],
+        ท่องเที่ยว: ["Travel", "Tourism"],
+        กระเป๋าเดินทาง: ["Luggage", "Suitcase", "Travel", "Baggage"],
+        กระเป๋า: ["Handbag", "Bag", "Fashion accessories"],
+        รองเท้า: ["Shoes", "Footwear", "Sneakers"],
+        เสื้อผ้า: ["Clothing", "Fashion", "Online shopping"],
+        นาฬิกา: ["Watch", "Fashion accessories"],
+        มือถือ: ["Smartphone", "Mobile phones"],
+        กล้อง: ["Camera", "Photography"],
+        เฟอร์นิเจอร์: ["Furniture", "Home improvement"],
+        ประกัน: ["Insurance", "Life insurance"],
+        บัตรเครดิต: ["Credit card", "Personal finance"],
+        การเงิน: ["Personal finance", "Finance", "Investment"],
+        ลงทุน: ["Investment", "Stock trader", "Personal finance"],
+        หุ้น: ["Stock trader", "Investment"],
+        ออมเงิน: ["Saving", "Personal finance"],
+        สินเชื่อ: ["Loans", "Credit", "Personal finance"],
+      };
+
+      /* ============================================================
+         สถานะ
+         ============================================================ */
+      let TOKEN = "";
+      let ACCT = "";
+      let rows = [];
+      let picked = {};   // id -> item
+      let layer = {};    // id -> 0 | 1   (0 = ชั้นหลัก, 1 = บีบให้แคบลง)
+      let rowReach = {}; // id -> {lower, upper, error}
+      let totalReach = null;
+      let regionKey = {};
+      let editingSetId = "";
+
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+      /* ============================================================
+         เรียก Graph API ตรงจากเบราว์เซอร์
+         ============================================================ */
+      async function graph(path, params = {}) {
+        if (!TOKEN) throw new Error("ยังไม่ได้ใส่ token");
+        const qs = new URLSearchParams({ ...params, access_token: TOKEN });
+        const res = await fetch(`https://graph.facebook.com/${V}/${path}?${qs}`);
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const e = j?.error || {};
+          throw new Error(e.error_user_msg || e.message || `Graph error ${res.status}`);
+        }
+        return j;
+      }
+
+      /* แคชผลค้นไว้ 2 ชม. — หนึ่งคำค้นยิงออกไปหลายแหล่ง ไม่ควรยิงซ้ำคำเดิม */
+      const cache = new Map();
+      async function cached(key, make) {
+        const hit = cache.get(key);
+        if (hit && hit.exp > Date.now()) return hit.val;
+        const val = await make();
+        cache.set(key, { exp: Date.now() + 2 * 3600e3, val });
+        return val;
+      }
+
+      /* ============================================================
+         ตรรกะการจัดชนิด / ให้คะแนน (ยกมาจากฝั่ง server ทั้งชุด)
+         ============================================================ */
+      const isFieldName = (v) => /^[a-z][a-z0-9_]{2,40}$/.test(v);
+
+      function kindOf(raw) {
+        const t = String(raw?.type ?? "").trim().toLowerCase();
+        if (isFieldName(t)) return t;
+        const head = String(raw?.path?.[0] ?? "").trim().toLowerCase();
+        return KIND_BY_PATH[head] || "interests";
+      }
+
+      /* Meta แปะหมวดต่อท้ายชื่อเวลาคำกำกวม — "Food (food and drink)" ไม่ใช่ชื่อจริง
+         ตัดออกเฉพาะเมื่อในวงเล็บตรงกับ topic เป๊ะ (บางชื่อมีวงเล็บอยู่ในชื่อจริง) */
+      function displayName(name, topic) {
+        const t = String(topic || "").trim();
+        if (!t) return name;
+        const m = /^(.*?)\s*\(([^()]*)\)$/.exec(name);
+        if (!m || m[2].trim().toLowerCase() !== t.toLowerCase()) return name;
+        return m[1].trim() || name;
+      }
+
+      const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; };
+
+      function toInterest(raw) {
+        const id = String(raw?.id ?? "").trim();
+        const name = String(raw?.name ?? "").trim();
+        if (!id || !name) return null;
+        const flat = num(raw?.audience_size);
+        const topic = String(raw?.topic ?? "");
+        const kind = kindOf(raw);
+        return {
+          id, name, label: displayName(name, topic),
+          sizeMin: num(raw?.audience_size_lower_bound) || flat,
+          sizeMax: num(raw?.audience_size_upper_bound) || flat,
+          path: Array.isArray(raw?.path) ? raw.path.map(String) : [],
+          topic, description: String(raw?.description ?? ""),
+          kind, reachable: /^\d{5,25}$/.test(id) && KIND_FIELDS.has(kind),
+        };
+      }
+
+      const toList = (j) => {
+        const out = [], seen = new Set();
+        for (const r of (Array.isArray(j?.data) ? j.data : [])) {
+          const it = toInterest(r);
+          if (!it || seen.has(it.id)) continue;
+          seen.add(it.id);
+          out.push(it);
+        }
+        return out;
+      };
+
+      /** ตัดวลีเป็นคำ ๆ · คำไทยไม่มีช่องว่างคั่น นับเป็นคำเดียวทั้งก้อน */
+      function tokensOf(term) {
+        const t = String(term || "").trim().toLowerCase();
+        if (!t || /[฀-๿]/.test(t)) return t ? [t] : [];
+        return t.split(/\s+/).filter((w) => w.length >= 2);
+      }
+
+      /* ตรงคำใดคำหนึ่งก็นับว่าเกี่ยว แล้วให้คะแนนจัดอันดับทีหลัง —
+         Meta เองก็ทำแบบนี้ (ค้น "Business owner" แล้วคืน "Business model" มาด้วย) */
+      function termHits(term, it) {
+        const t = String(term || "").trim().toLowerCase();
+        if (!t) return false;
+        const hay = `${it.label} ${it.name} ${it.topic} ${it.path.join(" ")}`.toLowerCase();
+        if (hay.includes(t)) return true;
+        return tokensOf(t).some((w) => hay.includes(w));
+      }
+
+      function matchScore(term, it) {
+        const t = String(term || "").trim().toLowerCase();
+        if (!t) return 0;
+        const name = (it.label || it.name).toLowerCase();
+        const cat = `${it.topic} ${it.path.join(" ")}`.toLowerCase();
+        const escRe = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        /* ยอมให้ลงท้าย s/es — "Small business owners" ต้องนับว่าตรงกับ "owner"
+           แต่จำกัดแค่รูปพหูพจน์ ไม่งั้น "Dustin" จะนับว่าตรงกับ "dust" */
+        const whole = (w, hay) => new RegExp(`(^|[^a-z0-9])${escRe(w)}(e?s)?([^a-z0-9]|$)`).test(hay);
+        const thai = /[฀-๿]/.test(t);
+        const hasWhole = (w, hay) => (thai ? hay.includes(w) : whole(w, hay));
+
+        let score = 0;
+        if (name === t) score = 100;
+        else if (hasWhole(t, name)) score = 70;
+        else {
+          const toks = tokensOf(t);
+          const hit = toks.filter((w) => hasWhole(w, name)).length;
+          if (toks.length > 1 && hit === toks.length) score = 60;
+          // เช็กหมวดด้วยขอบคำเหมือนกัน — ใช้จับตัวอักษรดิบแล้ว "dust" ไปโดน path
+          // ที่มีคำว่า "Dustin" แล้วได้ 40 ทั้งที่ควรถูกกดลงไปเป็นของบังเอิญ
+          else if (hasWhole(t, cat)) score = 40;
+          else if (hit) score = 20 + Math.round((25 * hit) / toks.length);
+          else if (name.includes(t)) score = 15;
+          else if (toks.some((w) => hasWhole(w, cat))) score = 18;
+        }
+        if (!score) return 0;
+        /* path ที่เป็นแค่ ["Additional interests", ชื่อตัวเอง] คือรายการหางยาวที่ Meta
+           ไม่ได้จัดหมวดให้ ส่วนใหญ่เป็นชื่อคน/เพจ */
+        const p = it.path;
+        const uncat = p.length <= 2 && p.some((x) => /^additional interests$/i.test(x)) && !/^interests$/i.test(p[0] || "");
+        return uncat ? Math.max(1, score - 20) : score;
+      }
+
+      function rankMatches(perTerm, limit) {
+        const byId = new Map();
+        for (const { term, items } of perTerm) {
+          for (const it of items) {
+            const sc = matchScore(term, it);
+            const cur = byId.get(it.id);
+            if (cur) {
+              if (!cur.matchedTerms.includes(term)) cur.matchedTerms.push(term);
+              cur.score = Math.max(cur.score, sc);
+            } else byId.set(it.id, { ...it, matchedTerms: [term], score: sc });
+          }
+        }
+        return [...byId.values()]
+          .sort((a, b) =>
+            b.matchedTerms.length - a.matchedTerms.length || b.score - a.score ||
+            b.sizeMax - a.sizeMax || a.name.localeCompare(b.name))
+          .slice(0, limit);
+      }
+
+      /** รวมทุกคำที่เจอ ไม่ใช่คำแรกคำเดียว — "วัยรุ่นการเงิน" มีทั้งสองความหมาย */
+      function seedFor(term) {
+        const t = String(term || "").trim().toLowerCase();
+        if (!t) return [];
+        const keys = Object.keys(SEED).sort((a, b) => b.length - a.length);
+        const taken = [], out = [], seen = new Set();
+        for (const k of keys) {
+          const key = k.toLowerCase();
+          if (!t.includes(key)) continue;
+          if (taken.some((prev) => prev.includes(key))) continue; // ซ้อนในคำที่ยาวกว่าแล้ว
+          taken.push(key);
+          for (const w of SEED[k]) {
+            if (seen.has(w.toLowerCase())) continue;
+            seen.add(w.toLowerCase());
+            out.push(w);
+          }
+          if (taken.length >= 3) break;
+        }
+        return out;
+      }
+
+      /** คำไทยส่วนใหญ่เป็นคำประสมที่เอาคำกว้างกว่านำหน้า — ตัดท้ายทิ้งได้หมวดที่กว้างขึ้น */
+      function prefixLadder(n) {
+        const out = [];
+        for (const k of [Math.ceil(n * 0.75), Math.ceil(n * 0.5), 6, 5, 4, 3])
+          if (k >= 3 && k < n && !out.includes(k)) out.push(k);
+        return out;
+      }
+
+      /* ============================================================
+         ค้นหา — ยิงทุกแหล่งของ detailed targeting
+         ============================================================ */
+      const searchInterests = (q, limit = 50, locale = EN) =>
+        cached(`s:${limit}:${locale}:${q.toLowerCase()}`, async () =>
+          toList(await graph("search", { type: "adinterest", q, limit: String(limit), locale })));
+
+      const targetingSearch = (q, limit = 50) =>
+        cached(`t:${limit}:${q.toLowerCase()}`, async () =>
+          ACCT ? toList(await graph(`${ACCT}/targetingsearch`, { q, limit: String(limit), locale: EN })) : []);
+
+      const searchByType = (type, q, limit) =>
+        cached(`x:${type}:${limit}:${q.toLowerCase()}`, async () =>
+          toList(await graph("search", { type, q, limit: String(limit), locale: EN })));
+
+      /* ไม่มี endpoint เดียวที่คืนครบ — adinterest ค้นเฉพาะ interest, targetingsearch
+         ค้นข้ามชนิดแต่ก็ไม่ครบทุกตระกูล ที่ทำงาน/ตำแหน่งงาน/สถานศึกษา มีของตัวเอง */
+      async function searchEverywhere(q, limit = 50) {
+        const jobs = [
+          () => searchInterests(q, limit),
+          () => targetingSearch(q, limit),
+          () => searchByType("adworkemployer", q, 25),
+          () => searchByType("adworkposition", q, 25),
+          () => searchByType("adeducationschool", q, 25),
+          () => searchByType("adeducationmajor", q, 25),
+        ];
+        const settled = await Promise.allSettled(jobs.map((f) => f()));
+        const items = [];
+        let ok = 0;
+        for (const r of settled) if (r.status === "fulfilled") { ok++; items.push(...r.value); }
+        if (!ok) throw settled[0].reason;
+        return items;
+      }
+
+      /** แปลงชื่อไทยกลับเป็นอังกฤษ — ชั้นที่ค้นด้วย locale ไทยจะได้ชื่อไทยติดมา */
+      async function toEnglishNames(items) {
+        const need = items.filter((it) => /[฀-๿]/.test(it.label || it.name));
+        if (!need.length) return items;
+        try {
+          const j = await graph("search", {
+            type: "adinterestvalid",
+            interest_fbid_list: JSON.stringify(need.slice(0, 25).map((x) => x.id)),
+            locale: EN,
+          });
+          const byId = new Map();
+          for (const r of (Array.isArray(j?.data) ? j.data : [])) {
+            const id = String(r?.id ?? ""), nm = String(r?.name ?? "").trim();
+            if (id && nm) byId.set(id, nm);
+          }
+          if (!byId.size) return items;
+          return items.map((it) => {
+            const en = byId.get(it.id);
+            if (!en || /[฀-๿]/.test(en)) return it;
+            // adinterestvalid ไม่คืน path มาให้ จึงทิ้งชั้นที่เป็นไทยไป
+            return { ...it, name: en, label: displayName(en, it.topic), path: it.path.filter((x) => !/[฀-๿]/.test(x)) };
+          });
+        } catch { return items; }
+      }
+
+      async function searchOne(q, limit = 50) {
+        const term = String(q || "").trim();
+        if (!term) return { items: [], usedTerm: "" };
+        const keep = (items, against) => items.filter((it) => termHits(against, it));
+        const perTerm = [];
+        const isThai = /[฀-๿]/.test(term);
+
+        let hit = keep(await searchEverywhere(term, limit), term);
+        if (!hit.length && isThai) hit = keep(await searchInterests(term, limit, "th_TH"), term);
+        if (hit.length) perTerm.push({ term, items: hit });
+
+        /* คำไทยเจอน้อยกว่าคำอังกฤษมาก — เอาชื่ออังกฤษที่เพิ่งเจอไปค้นต่อ
+           ได้คำที่มีอยู่จริงในคลังแน่นอน เพราะมันมาจากคลังเอง */
+        const expand = async (found) => {
+          const pivots = [];
+          for (const it of found) {
+            const n = it.label || it.name;
+            if (/[฀-๿]/.test(n) || pivots.includes(n)) continue;
+            pivots.push(n);
+            if (pivots.length >= 2) break;
+          }
+          const more = await Promise.allSettled(pivots.map((w) => searchEverywhere(w, limit)));
+          more.forEach((r, i) => {
+            if (r.status !== "fulfilled") return;
+            const items = keep(r.value, pivots[i]);
+            if (items.length) perTerm.push({ term: pivots[i], items });
+          });
+        };
+        if (isThai && hit.length) await expand(hit);
+
+        /* ตารางคำยิงเสมอ ไม่ใช่เฉพาะตอนหาไม่เจอ — "rich people" หาเจอเพียบ
+           แต่เจอแต่ Richard Branson ซึ่งแย่กว่าไม่เจอ */
+        const seed = seedFor(term);
+        if (seed.length) {
+          const got = await Promise.allSettled(seed.map((w) => searchInterests(w, 20)));
+          got.forEach((r, i) => {
+            if (r.status !== "fulfilled") return;
+            const items = keep(r.value, seed[i]);
+            if (items.length) perTerm.push({ term: seed[i], items });
+          });
+        }
+
+        // ยังไม่เจออะไรเลย → ตัดคำไทยให้สั้นลงแล้วลองใหม่
+        let usedTerm = "";
+        if (!perTerm.length && isThai && term.length >= 4) {
+          for (const len of prefixLadder(term.length)) {
+            const probe = term.slice(0, len);
+            let r = [];
+            try { r = await searchInterests(probe, 25); } catch { /* ลองสั้นลงอีก */ }
+            const got = keep(r, probe);
+            if (!got.length) continue;
+            perTerm.push({ term: probe, items: got });
+            usedTerm = probe;
+            await expand(got);
+            break;
+          }
+        }
+        return { items: await toEnglishNames(rankMatches(perTerm, limit)), usedTerm };
+      }
+
+      /* ============================================================
+         ประเมินจำนวนคนในไทย
+         ============================================================ */
+      async function resolveProvinces(names) {
+        const ask = names.filter((n) => !(n in regionKey));
+        await Promise.all(ask.map(async (n) => {
+          try {
+            const j = await graph("search", {
+              type: "adgeolocation", location_types: JSON.stringify(["region"]),
+              country_code: "TH", q: n, limit: "1",
+            });
+            const hit = j?.data?.[0];
+            if (hit?.key) regionKey[n] = String(hit.key);
+          } catch { /* ข้ามจังหวัดนี้ ดีกว่าล้มทั้งคำขอ */ }
+        }));
+        return names.map((n) => regionKey[n]).filter(Boolean);
+      }
+
+      function buildGeo(area, keys) {
+        const base = { location_types: ["home", "recent"] };
+        if (area === "th") return { countries: ["TH"], ...base };
+        // หารหัสไม่ได้สักอัน → ถอยไปใช้คีย์เมืองกรุงเทพฯ ที่รู้ว่าถูกแน่
+        // ห้ามส่ง regions ว่าง เพราะ Meta จะตีเป็นทั้งโลกแล้วได้เลขเกินจริงมหาศาล
+        if (!keys.length) return { cities: [{ key: BKK_CITY, radius: 25, distance_unit: "mile" }], ...base };
+        return { regions: keys.map((key) => ({ key })), ...base };
+      }
+
+      function buildSpec(aud, items, geo) {
+        const spec = { age_min: aud.ageMin, age_max: aud.ageMax, geo_locations: geo };
+        if (aud.gender === "male") spec.genders = [1];
+        else if (aud.gender === "female") spec.genders = [2];
+        /* flexible_spec เป็นอาเรย์ของชั้น — ในชั้นเดียวกันคือ "หรือ" ข้ามชั้นคือ "และ"
+           และของแต่ละชนิดต้องลงช่องของตัวเอง ใส่ผิดช่องทีเดียว Graph ทิ้งทั้งคำขอ */
+        const layers = [];
+        for (const it of items) {
+          const id = String(it?.id ?? "").trim();
+          if (!/^\d{5,25}$/.test(id)) continue;
+          const kind = String(it?.kind ?? "interests");
+          if (!KIND_FIELDS.has(kind)) continue;
+          const g = Math.min(2, Math.max(0, Math.trunc(Number(it?.group) || 0)));
+          layers[g] = layers[g] || {};
+          (layers[g][kind] = layers[g][kind] || []).push({ id, name: String(it?.name ?? "") });
+        }
+        const flex = layers.filter((l) => l && Object.keys(l).length);
+        if (flex.length) spec.flexible_spec = flex;
+        return spec;
+      }
+
+      async function estimateReach(groups) {
+        if (!ACCT) throw new Error("ยังไม่ได้เลือกบัญชีโฆษณา");
+        const aud = readAud();
+        const prov = AREAS[aud.area].provinces;
+        const geo = buildGeo(aud.area, prov ? await resolveProvinces(prov) : []);
+        const out = await Promise.allSettled(groups.map((g) => {
+          // ของที่ถูกตัดทิ้งหมด (ชนิดที่ไม่รองรับ) ห้ามยิง — spec จะเหลือแค่อายุกับพื้นที่
+          // แล้ว Meta คืน "คนทั้งประเทศ" กลับมา ซึ่งดูเหมือนตัวเลขที่ใช้ได้ทั้งที่ไม่เกี่ยว
+          const spec = buildSpec(aud, g.interests, geo);
+          if (g.interests.length && !spec.flexible_spec) return Promise.reject(new Error("ชนิดเป้าหมายนี้ยังคิดจำนวนคนให้ไม่ได้"));
+          return graph(`${ACCT}/reachestimate`, { targeting_spec: JSON.stringify(spec) });
+        }));
+        return out.map((r, i) => {
+          if (r.status === "rejected") return { key: groups[i].key, lower: 0, upper: 0, error: r.reason?.message || "ประเมินไม่สำเร็จ" };
+          const d = Array.isArray(r.value?.data) ? r.value.data[0] : r.value?.data;
+          const flat = num(d?.users);
+          const lower = num(d?.users_lower_bound) || flat, upper = num(d?.users_upper_bound) || flat;
+          return { key: groups[i].key, lower, upper, error: lower || upper ? "" : "Meta ประเมินกลุ่มนี้ไม่ได้" };
+        });
+      }
+
+      /* ============================================================
+         แสดงผล
+         ============================================================ */
+      const unit = (n) => {
+        const f = (v, u) => `${Number(v.toFixed(v < 100 ? 1 : 0))}${u}`;
+        if (n >= 1e9) return f(n / 1e9, "b");
+        if (n >= 1e6) return f(n / 1e6, "m");
+        if (n >= 1e3) return f(n / 1e3, "k");
+        return String(Math.round(n));
+      };
+      const people = (lo, hi) => (!hi ? "—" : lo && lo !== hi ? `${unit(lo)}–${unit(hi)}` : unit(hi));
+      const pathText = (p) => (p || []).slice(-1)[0] || "";
+
+      /* สีต้องแปลว่าอะไร ไม่ใช่เขียวตลอด — เกณฑ์เป็นหลักกะจากคนไทยบน Facebook ~50 ล้าน */
+      function reachTone(upper) {
+        if (!upper) return { tone: "", label: "", hint: "" };
+        if (upper < 50000) return { tone: "tiny", label: "Very narrow", hint: "เล็กจนยิงแล้ววนเจอคนเดิมเร็วมาก — เอาเงื่อนไขชั้น “และ” ออก หรือเพิ่มตัวในชั้นหลัก" };
+        if (upper < 300000) return { tone: "small", label: "Narrow", hint: "งบเยอะ ๆ ความถี่จะพุ่งเร็ว ดูค่าความถี่ระหว่างยิงด้วย" };
+        if (upper > 15000000) return { tone: "", label: "Broad", hint: "เหมาะกับงาน awareness · ถ้าต้องการเจาะ กด ↓ บีบให้แคบลง" };
+        return { tone: "ok", label: "", hint: "" };
+      }
+
+      const readAud = () => ({
+        ageMin: Math.min(65, Math.max(13, +$("ageMin").value || 20)),
+        ageMax: Math.min(65, Math.max(13, +$("ageMax").value || 65)),
+        gender: $("gender").value,
+        area: $("area").value,
+      });
+
+      function shownRows() {
+        const hw = $("hideWeak").checked, hs = $("hideSmall").checked;
+        return rows.filter((r) => {
+          if (picked[r.id]) return true; // ที่เลือกไว้แล้วห้ามหายเพราะตัวกรอง
+          // รู้เลขคนไทยแล้วใช้เลขนั้น — ของนอกตลาดไทยมีขนาดทั้งโลกใหญ่แต่ในไทยหลักพัน
+          const th = rowReach[r.id];
+          const size = th && !th.error ? th.upper : r.sizeMax;
+          if (hs && size && size < SMALL_MIN) return false;
+          if (hw && r.score != null && r.score <= WEAK_MAX) return false;
+          return true;
+        });
+      }
+
+      function renderResults() {
+        const box = $("results"), shown = shownRows(), hidden = rows.length - shown.length;
+        $("cnt").textContent = rows.length ? `${shown.length} รายการ${hidden > 0 ? ` (ซ่อนอยู่ ${hidden})` : ""}` : "";
+        if (!rows.length) { box.innerHTML = `<div class="empty">🔍 ${TOKEN ? "พิมพ์คำค้นด้านบนแล้วกด Enter" : "ใส่ token ด้านบนก่อน"}</div>`; return; }
+        if (!shown.length) { box.innerHTML = `<div class="empty">ผลทั้ง ${rows.length} รายการถูกตัวกรองซ่อนไว้ — เอาเครื่องหมายด้านบนออกเพื่อดู</div>`; return; }
+
+        const maxReach = shown.reduce((m, r) => Math.max(m, rowReach[r.id]?.upper || 0), 0);
+        box.innerHTML = `<table><thead><tr>
+            <th></th><th>ตัวเลือกเป้าหมาย</th>
+            <th title="ขนาดกลุ่มทั้งโลกที่ Meta คืนมา">ทั้งโลก</th>
+            <th title="คนในไทยตามกลุ่มเป้าหมายที่ตั้งไว้ด้านบน">🇹🇭 ในไทย</th>
+            <th>หมวด</th></tr></thead><tbody>${shown.map((it) => {
+          const blocked = !picked[it.id] && (it.reachable === false || !!rowReach[it.id]?.error);
+          const r = rowReach[it.id];
+          let thCell = "—";
+          if (r?.error) thCell = `<span class="err" title="${esc(r.error)}">?</span>`;
+          else if (r) thCell = people(r.lower, r.upper) + (maxReach ? `<span class="bar"><i style="width:${Math.max(3, Math.round((r.upper / maxReach) * 100))}%"></i></span>` : "");
+          return `<tr data-id="${it.id}" class="${picked[it.id] ? "on" : ""}${blocked ? " blocked" : ""}"
+              ${blocked ? `title="เลือกไม่ได้ — ${esc(r?.error || "ชนิดนี้ยังคิดจำนวนคนให้ไม่ได้")}"` : ""}>
+            <td><input type="checkbox" ${picked[it.id] ? "checked" : ""} ${blocked ? "disabled" : ""} /></td>
+            <td><span class="nm">${esc(it.label || it.name)}</span>
+              ${it.kind && it.kind !== "interests" ? `<span class="tag kind">${esc(KIND_LABEL[it.kind] || "ชนิดอื่น")}</span>` : ""}
+              ${it.suggested ? `<span class="tag sug">Meta แนะนำ</span>` : ""}
+              ${it.score != null && it.score <= WEAK_MAX ? `<span class="tag weak">เกี่ยวน้อย</span>` : ""}
+              ${it.description ? `<div class="desc">${esc(it.description)}</div>` : ""}</td>
+            <td class="size">${people(it.sizeMin, it.sizeMax)}</td>
+            <td class="th">${thCell}</td>
+            <td>${it.path?.length ? `<span class="pill">${esc(pathText(it.path))}</span>` : ""}</td>
+          </tr>`;
+        }).join("")}</tbody></table>`;
+
+        box.querySelectorAll("tbody tr").forEach((tr) => {
+          if (tr.classList.contains("blocked")) return;
+          tr.onclick = () => toggle(rows.find((x) => x.id === tr.dataset.id));
+        });
+      }
+
+      function renderCart() {
+        const list = Object.values(picked);
+        $("pickCnt").textContent = list.length || "";
+        const box = $("cartBody");
+        if (!list.length) { box.innerHTML = `<div class="empty">กดแถวในตารางเพื่อเก็บไว้ที่นี่</div>`; renderSets(); return; }
+
+        const main = list.filter((x) => !layer[x.id]), narrow = list.filter((x) => layer[x.id] === 1);
+        const t = reachTone(totalReach && !totalReach.error ? totalReach.upper : 0);
+        const groupHtml = (g, items) => (g === 1 && !items.length ? "" : `
+          <div class="grp"><div class="grp-head">
+            <span>${g === 0 ? "Include people who match" : "and must also match"}</span>
+            <span class="op">${g === 0 ? "any of" : "AND"}</span></div>
+          <ul>${items.length ? items.map((it) => `<li>
+              <span>${esc(it.label || it.name)}</span>
+              <span><button class="mini" data-move="${it.id}" data-to="${g === 0 ? 1 : 0}"
+                  title="${g === 0 ? "ย้ายไปชั้นที่บีบให้แคบลง" : "ย้ายกลับชั้นหลัก"}">${g === 0 ? "↓" : "↑"}</button>
+                <button class="mini" data-del="${it.id}" title="เอาออก">✕</button></span>
+            </li>`).join("") : `<li style="color:var(--muted)">ยังไม่มี</li>`}</ul></div>`);
+
+        box.innerHTML = `
+          <div class="total ${t.tone}">
+            <span class="lbl">🇹🇭 Estimated audience size · Thailand</span>
+            <b>${totalReach ? (totalReach.error ? "—" : `${people(totalReach.lower, totalReach.upper)} people`) : "กำลังคิด…"}
+              ${t.label ? `<span class="tagline">${t.label}</span>` : ""}</b>
+            ${totalReach?.error ? `<span class="hint bad">${esc(totalReach.error)}</span>` : ""}
+            ${t.hint ? `<span class="hint">${t.hint}</span>` : ""}
+            <span class="foot" style="display:block;margin-top:6px">รวมทั้งตะกร้า — ไม่ใช่ผลบวกของรายตัว เพราะคนซ้อนกัน</span>
+          </div>
+          ${groupHtml(0, main)}${groupHtml(1, narrow)}
+          ${!narrow.length && main.length > 1 ? `<div class="foot" style="margin:6px 0 10px">กด ↓ ที่ตัวใดตัวหนึ่งเพื่อบีบกลุ่มให้แคบลง — ต้องเข้าทั้งสองชั้นถึงจะนับ</div>` : ""}
+          <div class="acts">
+            <button id="expand">➕ Suggestions from selected</button>
+            <button class="primary" id="brief">📝 Copy for brief</button>
+            <button id="clear">Clear all</button>
+          </div>
+          <div class="save">
+            <input type="text" id="setName" placeholder="ชื่อชุด เช่น Bissin ขนมเด็ก Q1" />
+            <input type="text" id="setBrand" placeholder="แบรนด์/โปรเจกต์ (ไม่ใส่ก็ได้)" />
+            <button class="primary" id="saveSet">💾 ${editingSetId ? "บันทึกทับชุดเดิม" : "บันทึกเป็นชุดใหม่"}</button>
+          </div>
+          <div id="setsBox"></div>`;
+
+        box.querySelectorAll("[data-move]").forEach((b) => (b.onclick = () => { layer[b.dataset.move] = +b.dataset.to; refreshTotal(); renderCart(); }));
+        box.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => toggle(picked[b.dataset.del])));
+        $("expand").onclick = doExpand;
+        $("brief").onclick = copyBrief;
+        $("clear").onclick = () => { picked = {}; layer = {}; editingSetId = ""; totalReach = null; renderCart(); renderResults(); };
+        $("saveSet").onclick = doSaveSet;
+        renderSets();
+      }
+
+      /* ============================================================
+         ชุดที่เซฟไว้ — ไฟล์เดียวไม่มีฐานข้อมูล เก็บใน localStorage ของเครื่องนี้
+         ============================================================ */
+      const loadSets = () => { try { return JSON.parse(localStorage.getItem(LS_SETS) || "[]"); } catch { return []; } };
+      const storeSets = (s) => localStorage.setItem(LS_SETS, JSON.stringify(s));
+
+      function renderSets() {
+        const el = $("setsBox");
+        if (!el) return;
+        const sets = loadSets();
+        if (!sets.length) { el.innerHTML = ""; return; }
+        el.innerHTML = `<div class="sets"><div class="foot" style="font-weight:600;margin-bottom:4px">ชุดที่เซฟไว้ (${sets.length}) · เก็บในเบราว์เซอร์นี้เท่านั้น</div>
+          <ul>${sets.map((s, i) => `<li data-open="${i}">
+            <span><b>${esc(s.name)}</b><br /><span class="meta">${s.items.length} ตัว${s.brand ? ` · ${esc(s.brand)}` : ""}</span></span>
+            <button class="mini" data-rm="${i}" title="ลบชุดนี้">✕</button></li>`).join("")}</ul></div>`;
+        el.querySelectorAll("[data-open]").forEach((li) => (li.onclick = (e) => {
+          if (e.target.dataset.rm !== undefined) return;
+          openSet(loadSets()[+li.dataset.open]);
+        }));
+        el.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = (e) => {
+          e.stopPropagation();
+          const s = loadSets();
+          if (confirm(`ลบชุด "${s[+b.dataset.rm].name}" ?`)) { s.splice(+b.dataset.rm, 1); storeSets(s); renderSets(); }
+        }));
+      }
+
+      function openSet(st) {
+        if (!st) return;
+        picked = {}; layer = {};
+        for (const it of st.items) {
+          picked[it.id] = { id: it.id, name: it.label, label: it.label, sizeMin: it.sizeMin || 0, sizeMax: it.sizeMax || 0, path: [], topic: "", description: "", kind: it.kind || "interests", reachable: true };
+          if (it.group) layer[it.id] = it.group;
+        }
+        editingSetId = st.name;
+        renderCart(); renderResults(); refreshTotal();
+        $("setName").value = st.name;
+        $("setBrand").value = st.brand || "";
+        say(`เปิดชุด “${st.name}” แล้ว`);
+      }
+
+      function doSaveSet() {
+        const name = $("setName").value.trim();
+        if (!name) return say("ตั้งชื่อชุดก่อนบันทึก", true);
+        const list = Object.values(picked);
+        if (!list.length) return say("ยังไม่ได้เลือกอะไรสักตัว", true);
+        // เก็บ id เสมอ ไม่ใช่แค่ชื่อ — Meta เปลี่ยนชื่อ interest ได้ตลอด
+        const rec = {
+          name, brand: $("setBrand").value.trim(),
+          items: list.map((x) => ({ id: x.id, label: x.label || x.name, sizeMin: x.sizeMin, sizeMax: x.sizeMax, kind: x.kind, group: layer[x.id] || 0 })),
+        };
+        const sets = loadSets();
+        const at = sets.findIndex((s) => s.name === name);
+        if (at >= 0) sets[at] = rec; else sets.unshift(rec);
+        storeSets(sets);
+        editingSetId = name;
+        renderCart();
+        say(`บันทึกชุด “${name}” แล้ว (${rec.items.length} ตัว)`);
+      }
+
+      /* ============================================================
+         การกระทำ
+         ============================================================ */
+      function say(msg, bad = false) {
+        $("note").innerHTML = msg ? `<div class="card${bad ? " " : ""}"><span class="${bad ? "bad" : ""}">${esc(msg)}</span></div>` : "";
+      }
+
+      function toggle(it) {
+        if (!it) return;
+        if (picked[it.id]) { delete picked[it.id]; delete layer[it.id]; }
+        else picked[it.id] = it;
+        renderCart(); renderResults(); refreshTotal();
+      }
+
+      let totalTimer = 0;
+      function refreshTotal() {
+        clearTimeout(totalTimer);
+        const list = Object.values(picked);
+        if (!list.length || !ACCT) { totalReach = null; return; }
+        totalReach = null;
+        // หน่วงไว้ เพราะคนติ๊กรัว ๆ ทีละหลายตัว ไม่ควรยิงทุกครั้งที่ติ๊ก
+        totalTimer = setTimeout(async () => {
+          try {
+            const r = await estimateReach([{ key: "t", interests: list.map((x) => ({ id: x.id, name: x.label || x.name, kind: x.kind, group: layer[x.id] || 0 })) }]);
+            totalReach = r[0];
+          } catch (e) { totalReach = { lower: 0, upper: 0, error: e.message }; }
+          renderCart();
+        }, 700);
+      }
+
+      /** @param max จำกัดกี่แถว · ปกติ 12 เพราะหนึ่งแถว = หนึ่งคำขอไปหา Meta
+       *  แต่ตอนวางรายชื่อที่ AI เลือกมา ต้องได้เลขครบทุกตัวถึงจะเรียงตามขนาดได้ */
+      async function rowReachFor(list, max = ROW_REACH_MAX) {
+        if (!ACCT) return;
+        const take = list.filter((r) => r.reachable !== false && (!r.sizeMax || r.sizeMax >= SMALL_MIN)).slice(0, max);
+        if (!take.length) return;
+        try {
+          const r = await estimateReach(take.map((x) => ({ key: x.id, interests: [{ id: x.id, name: x.label || x.name, kind: x.kind }] })));
+          for (const x of r) rowReach[x.key] = { lower: x.lower, upper: x.upper, error: x.error };
+        } catch { /* ปล่อยให้เป็น — ตารางยังอ่านได้ */ }
+        renderResults();
+      }
+
+      async function doSearch() {
+        const q = $("q").value.trim();
+        if (!q || !TOKEN) return;
+        $("go").disabled = true;
+        $("go").textContent = "กำลังค้น…";
+        say("");
+        $("used").innerHTML = "";
+        try {
+          const r = await searchOne(q);
+          rows = r.items; rowReach = {};
+          if (r.usedTerm) $("used").innerHTML = `<div class="card warn" style="margin:0">ไม่เจอ “${esc(q)}” ตรง ๆ — แสดงผลของคำที่กว้างกว่าคือ <b>“${esc(r.usedTerm)}”</b> แทน</div>`;
+          if (!rows.length) say("ไม่เจอผลที่ตรงกับคำนี้ — ลองคำกว้างขึ้น หรือพิมพ์เป็นภาษาอังกฤษดู");
+          renderResults();
+          rowReachFor(shownRows());
+        } catch (e) { say(e.message, true); }
+        $("go").disabled = false;
+        $("go").textContent = "🔎 ค้นหา";
+      }
+
+      /* ============================================================
+         แนะนำจากบรีฟ — ทำงานในเครื่องล้วน ไม่พึ่งโมเดลภาษา
+         ยกตรรกะมาจากฝั่ง server ตัวที่ปิด AI ไว้ · สามชั้นคือ
+         (1) แยกคำในบรีฟแล้วค้นทีละคำด้วย searchOne ซึ่งมีตารางคำไทยอยู่ในตัว
+         (2) จัดอันดับข้ามคำ — ตัวที่โดนหลายคำในบรีฟพร้อมกันขึ้นก่อน
+         (3) เอาตัวที่เจอเป็นหลักยึดไปขอ "ตัวใกล้เคียง" จาก Meta ต่อ
+         ชั้นที่ 3 คือหัวใจ เพราะเราไม่ต้องเดาเองว่าคนกลุ่มนี้สนใจอะไรอีก
+         ให้ของ Meta ที่รู้ว่าอะไรไปด้วยกันเป็นคนบอก
+         ============================================================ */
+
+      /* คำที่เจอในบรีฟทุกใบแต่ไม่ได้บอกอะไรเลย — เอาไปค้นก็ได้ของกว้าง ๆ ที่ไม่เกี่ยว */
+      const STOPWORDS = new Set([
+        "และ", "หรือ", "ของ", "ที่", "ใน", "สำหรับ", "กับ", "เป็น", "ให้", "จาก", "ไม่", "ได้", "มี", "คือ",
+        "กลุ่ม", "เป้าหมาย", "กลุ่มเป้าหมาย", "ลูกค้า", "สินค้า", "แบรนด์", "แคมเปญ", "โฆษณา",
+        "คน", "ชอบ", "ปี", "อายุ", "เพศ", "ชาย", "หญิง", "ผู้ชาย", "ผู้หญิง", "ทุกเพศ", "ขึ้นไป",
+        /* คำประสมบอกประชากรศาสตร์ — ตัดทีละคำย่อยไม่ได้ ต้องใส่ทั้งคำ
+           ("ผู้หญิง อายุ 25 ปีขึ้นไป" เคยหลุดออกมาเป็นคำค้น "ปีขึ้นไป เพศหญิง") */
+        "ปีขึ้นไป", "เพศหญิง", "เพศชาย", "ช่วงอายุ", "วัย", "ทั้งหมด", "ทุกคน",
+        "the", "and", "or", "for", "of", "in", "on", "a", "an", "to", "with", "is", "are", "who", "that",
+        "ad", "ads", "brand", "product", "target", "campaign", "audience", "people", "person",
+        "years", "year", "old", "age", "aged", "male", "female", "men", "women", "man", "woman",
+        "love", "loves", "like", "likes", "interested", "interest", "both", "all",
+      ]);
+
+      /** ไม่ยิงเกินนี้ต่อหนึ่งบรีฟ — แต่ละคำบานออกเป็นหลายคำขอไปหา Meta */
+      const MAX_TERMS = 6;
+      /** ติ๊กให้อัตโนมัติกี่ตัวหลังได้ผล */
+      const AUTO_PICK = 6;
+
+      /**
+       * แยกบรีฟเป็นคำค้น
+       * ตัดที่ตัวคั่นชัด ๆ ก่อน (คอมมา ขึ้นบรรทัด สแลช บุลเล็ต) — วลีไทยเขียนติดกัน
+       * ไม่มีช่องว่างคั่นคำ ตัดที่ช่องว่างตั้งแต่แรกจะได้เศษคำที่ค้นไม่เจอ
+       * ได้น้อยกว่า 3 ก้อนค่อยตัดช่องว่างเพิ่ม (กรณีพิมพ์มาเป็นประโยคเดียว)
+       */
+      function extractTerms(brief) {
+        const text = String(brief || "").trim();
+        if (!text) return [];
+        const split = (x, re) =>
+          x.split(re).map((v) => v.trim().replace(/^[-–—•*]+|[-–—•*]+$/g, "").trim()).filter(Boolean);
+
+        /** คำเดี่ยวนี้เอาไปค้นได้ไหม — ตัวอักษรเดียว ตัวเลขล้วน และคำเติมประโยค ไม่เอา */
+        const useful = (w) =>
+          w.length >= 2 && !/^[\d\s\-–—+.,%]+$/.test(w) && !STOPWORDS.has(w.toLowerCase());
+
+        const out = [];
+        const seen = new Set();
+        const push = (t) => {
+          const v = t.trim().slice(0, 60);
+          const k = v.toLowerCase();
+          if (!v || seen.has(k) || !useful(v)) return;
+          seen.add(k);
+          out.push(v);
+        };
+
+        /* ตัดที่ตัวคั่นชัด ๆ ก่อน (คอมมา ขึ้นบรรทัด สแลช บุลเล็ต) — วลีไทยเขียนติดกัน
+           ไม่มีช่องว่างคั่นคำ ตัดที่ช่องว่างตั้งแต่แรกจะได้เศษคำที่ค้นไม่เจอ */
+        for (const part of split(text, /[,\n\r/|·;]+/)) {
+          if (out.length >= MAX_TERMS) break;
+          /* ก้อนที่ไม่มีช่องว่าง = คำเดียวอยู่แล้ว ใช้ทั้งก้อน
+             ก้อนที่มีช่องว่าง ต้องคัดคำเติมประโยคออกก่อน ไม่งั้นจะได้คำค้นแบบ
+             "กลุ่มเป้าหมาย คือ ลูกค้า ที่ ชอบ กาแฟ" ยิงไปทั้งก้อนแล้วไม่เจออะไรเลย */
+          const words = split(part, /\s+/).filter(useful);
+          if (!words.length) continue;
+          /* เหลือ 1-2 คำ เก็บเป็นวลี — "online shopping" ค้นเป็นวลีดีกว่าแยกสองคำ
+             เหลือเยอะกว่านั้นแปลว่าเป็นประโยค แยกทีละคำแม่นกว่า */
+          if (words.length <= 2) push(words.join(" "));
+          else for (const w of words) { if (out.length >= MAX_TERMS) break; push(w); }
+        }
+        return out.slice(0, MAX_TERMS);
+      }
+
+      /* เลือกหลักยึดแบบวนทีละคำ ไม่ใช่เอา 5 อันดับแรกรวด — ถ้าคำไหนให้ผลเยอะ
+         มันจะกินหลักยึดไปหมด แล้วอีกคำในบรีฟหายไปเงียบ ๆ */
+      function pickAnchors(perTerm, max = 5) {
+        const anchors = [];
+        const pools = perTerm.map((p) => [...p.items].sort((a, b) => b.sizeMax - a.sizeMax));
+        for (let rank = 0; rank < 2 && anchors.length < max; rank++) {
+          for (const pool of pools) {
+            const it = pool[rank];
+            if (!it) continue;
+            const n = it.label || it.name;
+            if (/[฀-๿]/.test(n) || anchors.includes(n)) continue;
+            anchors.push(n);
+            if (anchors.length >= max) break;
+          }
+        }
+        return anchors;
+      }
+
+      function renderBriefTerms(report) {
+        $("briefTerms").innerHTML = report.length
+          ? report.map((r) => `<span class="pill" title="${esc(r.note)}">${esc(r.term)} · ${r.n ? `${r.n} ตัว` : "ไม่เจอ"}</span>`).join(" ")
+          : "";
+      }
+
+      async function doDescribe() {
+        const brief = $("brief").value.trim();
+        if (!brief || !TOKEN) return;
+        const terms = extractTerms(brief);
+        if (!terms.length) { say("อ่านคำจากบรีฟไม่ได้เลย — ลองเขียนเป็นคำ ๆ คั่นด้วยคอมมา", true); return; }
+
+        const btn = $("briefGo");
+        btn.disabled = true;
+        say("");
+        $("used").innerHTML = "";
+
+        const perTerm = [];
+        const report = [];
+        try {
+          /* ยิงทีละคำไม่ใช่พร้อมกันหมด — searchOne หนึ่งครั้งบานเป็น 6-14 คำขอ
+             ยิง 6 คำพร้อมกันคือเกือบร้อยคำขอรวด โดน rate limit แน่ */
+          for (let i = 0; i < terms.length; i++) {
+            btn.textContent = `กำลังหา… ${i + 1}/${terms.length}`;
+            let items = [];
+            let note = "";
+            try {
+              const r = await searchOne(terms[i], 40);
+              items = r.items;
+              if (r.usedTerm) note = `ไม่เจอคำเต็ม ใช้คำที่กว้างกว่าคือ “${r.usedTerm}” แทน`;
+            } catch (e) {
+              note = e.message;
+            }
+            if (items.length) perTerm.push({ term: terms[i], items });
+            report.push({ term: terms[i], n: items.length, note });
+            renderBriefTerms(report);
+          }
+
+          if (!perTerm.length) {
+            rows = []; rowReach = {};
+            renderResults();
+            say("ไม่เจออะไรเลยจากบรีฟนี้ — ลองใส่คำที่เป็นของที่คนสนใจจริง ๆ เช่น ชื่อหมวดสินค้า กีฬา งานอดิเรก", true);
+            return;
+          }
+
+          const ranked = rankMatches(perTerm, 40);
+
+          /* ขอตัวใกล้เคียงจาก Meta ต่อ — ตัวที่ได้ไม่ได้ตรงกับคำในบรีฟ จึงไม่ผ่าน
+             ด่าน termHits ต้องต่อท้ายเอง และให้คะแนนคงที่ 35 คืออยู่ใต้ตัวที่ตรงจริง
+             แต่เหนือตัวที่บังเอิญมีตัวอักษรตรงกัน */
+          const anchors = pickAnchors(perTerm);
+          let extra = [];
+          if (anchors.length) {
+            btn.textContent = "กำลังหาตัวใกล้เคียง…";
+            try {
+              const j = await graph("search", {
+                type: "adinterestsuggestion",
+                interest_list: JSON.stringify(anchors),
+                limit: "50",
+                locale: EN,
+              });
+              const seen = new Set(ranked.map((x) => x.id));
+              extra = toList(j)
+                .filter((x) => !seen.has(x.id))
+                .slice(0, 20)
+                .map((x) => ({ ...x, matchedTerms: [], score: 35, suggested: true }));
+              if (extra.length) report.push({ term: `Meta แนะนำเพิ่ม`, n: extra.length, note: `อ้างอิงจาก ${anchors.join(", ")}` });
+            } catch { /* ไม่มีตัวใกล้เคียงก็ไม่เป็นไร ของที่ตรงคำยังอยู่ครบ */ }
+          }
+
+          rows = await toEnglishNames([...ranked, ...extra].slice(0, 40));
+          rowReach = {};
+          renderBriefTerms(report);
+          renderResults();
+          await rowReachFor(shownRows());
+          autoPick();
+        } catch (e) {
+          say(e.message, true);
+        }
+        btn.disabled = false;
+        btn.textContent = "✨ หา detailed targeting ให้";
+      }
+
+      /** ติ๊กตัวที่ดีที่สุดให้เลย — ข้ามตัวที่คิดจำนวนคนไม่ได้ กับตัวที่เล็กเกินใช้งาน
+       *  เรียกหลัง rowReachFor เสมอ เพราะต้องรู้เลขคนไทยก่อนถึงจะรู้ว่าตัวไหนใช้ได้ */
+      function autoPick() {
+        if (Object.keys(picked).length) return;   // คนเลือกเองไว้แล้ว อย่าไปยุ่ง
+        let n = 0;
+        for (const it of shownRows()) {
+          if (n >= AUTO_PICK) break;
+          if (it.reachable === false || rowReach[it.id]?.error) continue;
+          const th = rowReach[it.id];
+          if (th && th.upper && th.upper < SMALL_MIN) continue;
+          picked[it.id] = it;
+          n++;
+        }
+        if (!n) return;
+        renderCart(); renderResults(); refreshTotal();
+        say(`ติ๊กให้ ${n} ตัวที่เกี่ยวที่สุดแล้ว — เอาออกหรือเพิ่มเองได้ตามใจ`);
+      }
+
+      /* ============================================================
+         ให้ AI ข้างนอกเลือกให้ — ส่งออกแคตตาล็อก แล้ววางชื่อกลับมาตรวจ
+         เหตุผลที่แยกเป็นสองขา: ตอนให้โมเดลคิดชื่อเอง มันแต่งชื่อที่ไม่มีอยู่จริง
+         ได้ง่ายมาก (ฟังดูสมจริงทุกตัว แต่ยิงกลับไปหา Meta แล้วไม่มี) ถ้ายื่น
+         คลังจริงให้มันเลือก ปัญหานั้นหายไป และขาที่สองยังเป็นด่านตรวจซ้ำอีกชั้น
+         ============================================================ */
+
+      let catalog = [];                    // แคตตาล็อกที่ส่งออกไว้รอบนี้ (อยู่ในหน่วยความจำ)
+      const catalogByName = new Map();     // ชื่อพิมพ์เล็ก -> item · ใช้จับคู่ตอนวางชื่อกลับมา
+
+      /** คีย์เทียบชื่อ — ตัดวรรค เครื่องหมาย และตัวพิมพ์ออก เพราะโมเดลชอบแก้ขีดกลาง
+       *  กับเครื่องหมายคำพูดโดยไม่ตั้งใจ */
+      const nameKey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9฀-๿]+/g, " ").trim();
+
+      function remember(items) {
+        for (const it of items) {
+          for (const n of [it.label, it.name]) {
+            const k = nameKey(n);
+            if (k && !catalogByName.has(k)) catalogByName.set(k, it);
+          }
+        }
+      }
+
+      /** ไล่หน้าถัดไปให้ครบ — targetingbrowse คืนมาเป็นหน้า ๆ ไม่ใช่ก้อนเดียว */
+      async function graphPaged(path, params, maxPages = 40) {
+        const all = [];
+        let after = "";
+        for (let page = 0; page < maxPages; page++) {
+          const j = await graph(path, after ? { ...params, after } : params);
+          const data = Array.isArray(j?.data) ? j.data : [];
+          all.push(...data);
+          after = j?.paging?.cursors?.after || "";
+          if (!after || !data.length) break;
+          $("dumpState").textContent = `กำลังโหลดคลัง… ${all.length.toLocaleString()} รายการ`;
+        }
+        return all;
+      }
+
+      /** แบนต้นไม้ให้เป็นรายการเดียว — บางโหนดห่อลูกไว้ใน children ไม่ได้อยู่ระดับบน */
+      function flattenNodes(nodes, trail = [], out = []) {
+        for (const raw of (Array.isArray(nodes) ? nodes : [])) {
+          const kids = raw?.children || raw?.nodes || raw?.data;
+          const here = raw?.name ? [...trail, String(raw.name)] : trail;
+          const it = toInterest(raw);
+          if (it) out.push(it.path.length ? it : { ...it, path: trail });
+          if (Array.isArray(kids) && kids.length) flattenNodes(kids, here, out);
+        }
+        return out;
+      }
+
+      function download(filename, text) {
+        const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+
+      /** CSV ที่โมเดลอ่านรู้เรื่อง — ชื่อจริงอยู่คอลัมน์แรก จะได้สั่งให้ก๊อปตรงนั้นมาเป๊ะ ๆ */
+      function catalogCsv(items) {
+        const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+        const head = "name,type,category,size_lower,size_upper";
+        const body = items.map((it) =>
+          /* ใช้ชื่อ field ดิบของ Meta ไม่ใช่ป้ายภาษาไทย — ไฟล์นี้เอาไปป้อน AI
+             คอลัมน์เดียวกันต้องเป็นภาษาเดียวกันทั้งคอลัมน์ ไม่งั้นมันจับกลุ่มมั่ว */
+          [q(it.label || it.name), q(it.kind || "interests"),
+           q(pathText(it.path)), it.sizeMin || "", it.sizeMax || ""].join(",")
+        );
+        // BOM ให้ Excel เปิดภาษาไทยไม่เพี้ยน
+        return "﻿" + [head, ...body].join("\n");
+      }
+
+      async function dumpCatalog() {
+        if (!ACCT) { say("เลือกบัญชีโฆษณาก่อน", true); return; }
+        const btn = $("dumpGo");
+        btn.disabled = true;
+        $("dumpState").textContent = "กำลังโหลดคลัง… อาจใช้เวลาสักครู่";
+        try {
+          const raw = await graphPaged(`${ACCT}/targetingbrowse`, { limit: "500" });
+          const seen = new Set();
+          catalog = flattenNodes(raw).filter((it) => {
+            if (seen.has(it.id)) return false;
+            seen.add(it.id);
+            return true;
+          });
+          if (!catalog.length) {
+            $("dumpState").innerHTML = `<span class="bad">คลังว่างเปล่า — targetingbrowse ไม่คืนอะไรมาให้บัญชีนี้</span>`;
+            btn.disabled = false;
+            return;
+          }
+          remember(catalog);
+          download(`detailed-targeting-${ACCT.replace(/^act_/, "")}.csv`, catalogCsv(catalog));
+          catalogNote("ดาวน์โหลดแล้ว — กด 🔍 ขยายคลัง ต่อเพื่อดึงของที่ Browse ไม่โชว์");
+        } catch (e) {
+          $("dumpState").innerHTML = `<span class="bad">❌ ${esc(e.message)}</span>`;
+        }
+        btn.disabled = false;
+      }
+
+      /* ============================================================
+         ขยายคลัง — targetingbrowse ให้มาแค่ต้นไม้ที่ Ads Manager โชว์ตอนกด Browse
+         (ราว 600-700 รายการ) แต่ช่องค้นหาเข้าถึงของได้มากกว่านั้นหลายเท่า
+         สองวิธีที่ใช้ดึงส่วนที่เหลือออกมา:
+         (1) adTargetingCategory ทีละ class — ขอรายการทั้งตระกูลตรง ๆ ตระกูลละคำขอ
+         (2) adinterestsuggestion แบบลูกโซ่ — เอาชื่อที่มีอยู่เป็นหลักยึดไปขอตัว
+             ใกล้เคียง ตัวที่ได้ใหม่กลายเป็นหลักยึดรอบถัดไป วนจนไม่มีของใหม่
+         วิธี (2) แพงกว่าแต่ได้ interest หางยาวที่ Browse ไม่โชว์ · ยิงทีละ 25 ชื่อ
+         ต่อหนึ่งคำขอ จึงคุ้มกว่าการไล่ค้นทีละคำมาก
+         ============================================================ */
+
+      /* ตระกูล targeting ที่ Meta มี — ขอทีละตระกูลได้ ตัวไหนไม่มีก็ข้ามไปเงียบ ๆ
+         (รายชื่อนี้กวาดเผื่อไว้ ถ้า Meta เพิ่มตระกูลใหม่ค่อยเติม) */
+      const TARGET_CLASSES = [
+        "interests", "behaviors", "demographics", "life_events", "industries",
+        "income", "family_statuses", "user_device", "user_os", "education_statuses",
+        "relationship_statuses", "interested_in", "politics", "home_type",
+        "home_ownership", "generation", "moms", "office_type", "net_worth",
+        "work_positions", "work_employers", "education_majors", "education_schools",
+      ];
+
+      /* เพดานกันหลุดวนไม่จบเท่านั้น ไม่ได้ตั้งใจให้ตัดกลางทาง — ลูกโซ่หยุดเองเมื่อ
+         ไม่เหลือหลักยึดใหม่ ซึ่งคือตอนที่กวาดครบทุกตัวที่ Meta ยอมโยงให้แล้ว */
+      const CATALOG_CAP = 100000;
+      let growing = false;
+
+      function catalogNote(extra = "") {
+        const kinds = new Set(catalog.map((x) => x.kind));
+        $("dumpState").innerHTML =
+          `คลังตอนนี้ <b>${catalog.length.toLocaleString()}</b> รายการ · ${kinds.size} ชนิด` + (extra ? ` — ${extra}` : "");
+      }
+
+      /** ของใหม่ที่ยังไม่ได้เขียนลงที่เก็บถาวร */
+      let pendingSave = [];
+      /** ดัชนี id ที่มีแล้ว — สร้างใหม่ทุกครั้งที่เติมคือ O(n²) พอคลังโตเป็นหมื่นจะอืด */
+      const catalogIds = new Set();
+
+      /** เติมของใหม่เข้าคลัง คืนจำนวนที่เพิ่มขึ้นจริง */
+      function addToCatalog(items) {
+        if (catalogIds.size !== catalog.length) { catalogIds.clear(); for (const x of catalog) catalogIds.add(x.id); }
+        const fresh = [];
+        for (const it of items) {
+          if (!it || catalogIds.has(it.id)) continue;
+          catalogIds.add(it.id);
+          catalog.push(it);
+          fresh.push(it);
+        }
+        if (fresh.length) { remember(fresh); pendingSave.push(...fresh); }
+        return fresh.length;
+      }
+
+      async function growCatalog() {
+        if (growing) { growing = false; return; }        // กดซ้ำ = หยุด
+        if (!ACCT) { say("เลือกบัญชีโฆษณาก่อน", true); return; }
+
+        growing = true;
+        const btn = $("growGo");
+        btn.textContent = "⏹ หยุด";
+        $("dumpGo").disabled = true;
+        say("");
+
+        const started = catalog.length;
+        let errs = 0;
+        const gap = () => new Promise((r) => setTimeout(r, 700));
+
+        try {
+          /* ---- ชั้นที่ 1 · ขอทีละตระกูล ---- */
+          for (const cls of TARGET_CLASSES) {
+            if (!growing) break;
+            catalogNote(`กำลังขอตระกูล ${cls}…`);
+            try {
+              const j = await graph("search", { type: "adTargetingCategory", class: cls, limit: "2000", locale: EN });
+              addToCatalog(toList(j));
+              errs = 0;
+            } catch { errs++; }           // ตระกูลไหนไม่มีก็ข้าม ไม่ใช่ความผิดพลาด
+            catalogNote();
+            await gap();
+          }
+
+          /* ---- ชั้นที่ 2 · ลูกโซ่จากตัวใกล้เคียง ---- */
+          const used = new Set();
+          while (growing && catalog.length < CATALOG_CAP) {
+            const seeds = catalog
+              .filter((x) => x.kind === "interests" && !used.has(x.id))
+              .map((x) => x.label || x.name)
+              .filter((n) => !/[฀-๿]/.test(n))
+              .slice(0, 25);
+            if (seeds.length < 1) break;
+            for (const x of catalog) if (seeds.includes(x.label || x.name)) used.add(x.id);
+
+            catalogNote(`กำลังไล่ตัวใกล้เคียง… (เหลือหลักยึดอีก ${catalog.filter((y) => y.kind === "interests" && !used.has(y.id)).length.toLocaleString()})`);
+            try {
+              const j = await graph("search", {
+                type: "adinterestsuggestion",
+                interest_list: JSON.stringify(seeds),
+                limit: "100",
+                locale: EN,
+              });
+              addToCatalog(toList(j));
+              errs = 0;
+            } catch (e) {
+              errs++;
+              if (errs >= 5) { catalogNote(`<span class="bad">หยุดเพราะพลาดติดกัน 5 ครั้ง: ${esc(e.message)}</span>`); break; }
+            }
+            catalogNote();
+            await gap();
+          }
+        } catch (e) {
+          catalogNote(`<span class="bad">${esc(e.message)}</span>`);
+        }
+
+        growing = false;
+        btn.textContent = "🔍 ขยายคลัง";
+        $("dumpGo").disabled = false;
+
+        const added = catalog.length - started;
+        if (added > 0) {
+          download(`detailed-targeting-${ACCT.replace(/^act_/, "")}.csv`, catalogCsv(catalog));
+          catalogNote(`เพิ่มมาอีก <b>${added.toLocaleString()}</b> รายการ · ดาวน์โหลดไฟล์ใหม่แล้ว`);
+        } else {
+          catalogNote("ไม่มีของใหม่เพิ่มแล้ว");
+        }
+      }
+
+      /* ============================================================
+         กวาดทั้งคลัง — วิธีเดียวที่ได้ของครบจริง
+         Meta ไม่มี endpoint ที่คืนทุก detailed targeting ออกมา · targetingbrowse
+         ให้แค่ต้นไม้ที่ Ads Manager โชว์ (~650) ส่วนของที่เหลือเข้าถึงได้ทาง
+         ช่องค้นหาเท่านั้น เช่น "detergent" ที่หาเองเจอแต่ไม่มีใน browse
+         วิธีกวาด: ค้นด้วยตัวอักษรทีละชุด แล้ว "ขุดลึกเฉพาะชุดที่ผลเต็มหน้า"
+         ("de" ผลเต็ม = ยังมีของซ่อนอยู่ → ยิง "dea" "deb" ... "dez" ต่อ
+          "qz" ผลไม่เต็ม = หมดแค่นั้นจริง → ไม่ต้องขุดต่อ)
+         ทำให้ไม่ต้องยิงครบทุกชุดตัวอักษร ยิงเฉพาะกิ่งที่ยังมีของ
+         ============================================================ */
+
+      const SWEEP_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".split("");
+      const SWEEP_LIMIT = 500;     // ขอมาเยอะ ๆ Meta จะตัดเองถ้าเกินเพดานของมัน
+      const SWEEP_DEPTH = 4;       // ยาวกว่านี้คือคำเกือบเต็มคำแล้ว ของใหม่แทบไม่มี
+      const SWEEP_GAP = 700;
+
+      let sweeping = false;
+      let sweepQueue = [];
+      let sweepStats = { calls: 0, errors: 0, fullAt: 60, done: 0 };
+
+      /* ---- ที่เก็บถาวร ----
+         การกวาดเต็ม ๆ กินเวลาเป็นชั่วโมง เก็บไว้ในหน่วยความจำอย่างเดียวไม่ได้
+         ปิดแท็บทีเดียวงานหายหมด · localStorage เล็กเกิน (5MB) จึงใช้ IndexedDB */
+      const DB_NAME = "adsInterestCatalog";
+      let dbp = null;
+      function db() {
+        if (dbp) return dbp;
+        dbp = new Promise((res, rej) => {
+          const r = indexedDB.open(DB_NAME, 1);
+          r.onupgradeneeded = () => {
+            const d = r.result;
+            if (!d.objectStoreNames.contains("items")) d.createObjectStore("items", { keyPath: "id" });
+            if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta");
+          };
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error || new Error("เปิดที่เก็บไม่ได้"));
+        });
+        return dbp;
+      }
+      const tx = (store, mode, fn) =>
+        db().then((d) => new Promise((res, rej) => {
+          const t = d.transaction(store, mode);
+          const out = fn(t.objectStore(store));
+          t.oncomplete = () => res(out && out.result !== undefined ? out.result : out);
+          t.onerror = () => rej(t.error);
+        }));
+
+      const dbPutItems = (items) => tx("items", "readwrite", (st) => { for (const it of items) st.put(it); });
+      const dbAllItems = () => tx("items", "readonly", (st) => st.getAll());
+      const dbSetMeta = (k, v) => tx("meta", "readwrite", (st) => st.put(v, k));
+      const dbGetMeta = (k) => tx("meta", "readonly", (st) => st.get(k));
+
+      /* ---- ที่เก็บสำรอง: localStorage ----
+         Chrome ถือว่าไฟล์ที่เปิดตรง ๆ (file://) เป็น origin ลอย แล้วบล็อก IndexedDB
+         ทิ้ง ซึ่งคือวิธีที่คนจะเปิดไฟล์นี้จริง ๆ ส่วน localStorage ใช้ได้ แต่เล็ก (~5MB)
+         จึงต้องย่อรายการให้เหลือเฉพาะที่ CSV กับการจับคู่ชื่อต้องใช้ เก็บเป็น array
+         ไม่ใช่ object เพราะชื่อคีย์ซ้ำ ๆ กินที่มากกว่าตัวข้อมูลเองเสียอีก */
+      const LS_CAT = "aint.catalog";
+      const packItem = (it) => [it.id, it.label || it.name, it.kind || "interests", it.sizeMin || 0, it.sizeMax || 0, pathText(it.path) || ""];
+      const unpackItem = (a) => ({
+        id: String(a[0]), name: String(a[1]), label: String(a[1]),
+        sizeMin: +a[3] || 0, sizeMax: +a[4] || 0,
+        path: a[5] ? [String(a[5])] : [], topic: "", description: "",
+        kind: String(a[2] || "interests"),
+        reachable: /^\d{5,25}$/.test(String(a[0])) && KIND_FIELDS.has(String(a[2] || "interests")),
+      });
+
+      /** เขียนลงที่เก็บที่ใช้ได้จริง · คืน false = เก็บไม่ได้แล้ว (เต็มหรือถูกปิด) */
+      async function persist() {
+        if (storageOk === "idb") {
+          try {
+            if (pendingSave.length) { await dbPutItems(pendingSave); pendingSave = []; }
+            await dbSetMeta("queue", sweepQueue);
+            await dbSetMeta("stats", sweepStats);
+            return true;
+          } catch { storageOk = "ls"; }   // ตกไปใช้ตัวสำรอง
+        }
+        if (storageOk === "ls") {
+          try {
+            localStorage.setItem(LS_CAT, JSON.stringify({ q: sweepQueue, s: sweepStats, i: catalog.map(packItem) }));
+            pendingSave = [];
+            return true;
+          } catch { storageOk = false; }  // เต็ม
+        }
+        return false;
+      }
+
+      /** ที่เก็บถาวรใช้ได้ไหม — บางที่ปิด IndexedDB ไว้ (เปิดไฟล์ตรงใน Safari,
+       *  หน้าต่างไม่ระบุตัวตน, กรอบพรีวิวที่ไม่มี origin) ต้องรู้ตั้งแต่ต้น
+       *  ไม่ใช่ไปรู้ตอนกวาดมาสามชั่วโมงแล้วของหาย */
+      let storageOk = null;
+
+      async function checkStorage() {
+        try { await dbGetMeta("probe"); storageOk = "idb"; return storageOk; } catch { /* ลองตัวสำรอง */ }
+        try { localStorage.setItem("aint.probe", "1"); localStorage.removeItem("aint.probe"); storageOk = "ls"; }
+        catch { storageOk = false; }
+        return storageOk;
+      }
+
+      /** กู้คลังที่กวาดค้างไว้กลับมาตอนเปิดหน้าใหม่ */
+      async function restoreCatalog() {
+        const mode = await checkStorage();
+        if (!mode) {
+          $("dumpState").innerHTML =
+            `<span class="bad">เบราว์เซอร์นี้ไม่ยอมให้เก็บคลังถาวร</span> — กวาดได้ปกติ แต่<b>ห้ามปิดแท็บระหว่างกวาด</b> และกด 💾 บันทึกไฟล์ไว้เรื่อย ๆ`;
+          return;
+        }
+        try {
+          if (mode === "idb") {
+            const [items, q, stats] = await Promise.all([dbAllItems(), dbGetMeta("queue"), dbGetMeta("stats")]);
+            if (Array.isArray(items) && items.length) { catalog = items; remember(items); }
+            if (Array.isArray(q)) sweepQueue = q;
+            if (stats) sweepStats = { ...sweepStats, ...stats };
+          } else {
+            const raw = JSON.parse(localStorage.getItem(LS_CAT) || "null");
+            if (raw && Array.isArray(raw.i)) { catalog = raw.i.map(unpackItem); remember(catalog); }
+            if (raw && Array.isArray(raw.q)) sweepQueue = raw.q;
+            if (raw && raw.s) sweepStats = { ...sweepStats, ...raw.s };
+          }
+          if (catalog.length) {
+            catalogNote(sweepQueue.length ? `กวาดค้างไว้ · เหลือคิวอีก ${sweepQueue.length.toLocaleString()} ชุด — กด 🧹 เพื่อไปต่อ` : "กู้คืนจากครั้งก่อนแล้ว");
+          }
+        } catch { /* อ่านไม่ออกก็เริ่มใหม่ ดีกว่าค้าง */ }
+      }
+
+      async function sweepCatalog() {
+        if (sweeping) { sweeping = false; return; }      // กดซ้ำ = หยุด
+        if (!TOKEN) return;
+
+        sweeping = true;
+        const btn = $("sweepGo");
+        btn.textContent = "⏹ หยุด";
+        $("dumpGo").disabled = true;
+        $("growGo").disabled = true;
+        say("");
+
+        // เริ่มใหม่ = ตั้งคิวจากตัวอักษรตัวเดียวทั้งชุด · มีคิวค้างอยู่ = ไปต่อจากเดิม
+        if (!sweepQueue.length) sweepQueue = SWEEP_CHARS.slice();
+
+        const started = catalog.length;
+        let streak = 0;
+        let lastDump = catalog.length;
+
+        while (sweeping && sweepQueue.length) {
+          const q = sweepQueue.shift();
+          let got = null;
+          try {
+            got = await searchInterests(q, SWEEP_LIMIT);
+            sweepStats.calls++;
+            streak = 0;
+          } catch (e) {
+            sweepStats.calls++;
+            sweepStats.errors++;
+            streak++;
+            if (streak >= 6) {
+              sweeping = false;
+              catalogNote(`<span class="bad">หยุดเพราะพลาดติดกัน 6 ครั้ง: ${esc(e.message)}</span>`);
+              break;
+            }
+            sweepQueue.unshift(q);   // ยังไม่ได้ลองจริง เอากลับเข้าคิว
+          }
+
+          if (got) {
+            sweepStats.done++;
+            addToCatalog(got);
+            sweepStats.fullAt = Math.max(sweepStats.fullAt, got.length);
+            /* ผลเต็มหน้า = ยังมีของซ่อนอยู่หลังเพดาน ต้องขุดกิ่งนี้ต่อ
+               ใช้ 80% ของค่าสูงสุดที่เคยเห็น เพราะไม่รู้เพดานจริงของ Meta
+               ต้องให้ระบบคลำเอาเองจากของที่ได้มา */
+            if (got.length >= sweepStats.fullAt * 0.8 && q.length < SWEEP_DEPTH)
+              for (const c of SWEEP_CHARS) sweepQueue.push(q + c);
+
+            /* ทุก 25 คำขอ ไม่ใช่ทุกคำขอ — ตัวสำรองต้อง stringify คลังทั้งก้อน
+               พอคลังโตเป็นหมื่นจะหน่วงถ้าเขียนถี่เกิน */
+            if (sweepStats.done % 25 === 0) {
+              const ok = await persist();
+              /* เก็บไม่ได้แล้ว = งานหลายชั่วโมงลอยได้ ยัดไฟล์ใส่มือไว้ก่อนเลย */
+              if (!ok && catalog.length - lastDump >= 10000) {
+                lastDump = catalog.length;
+                download(`detailed-targeting-${ACCT.replace(/^act_/, "")}-${catalog.length}.csv`, catalogCsv(catalog));
+              }
+            }
+          }
+
+          const pct = sweepStats.calls ? Math.round((100 * sweepStats.errors) / sweepStats.calls) : 0;
+          catalogNote(
+            `กวาดอยู่ที่ “${esc(q)}” · ยิงไป ${sweepStats.calls.toLocaleString()} ครั้ง` +
+            ` · error ${sweepStats.errors} (${pct}%) · เหลือคิว ${sweepQueue.length.toLocaleString()} ชุด`
+          );
+          await new Promise((r) => setTimeout(r, streak ? Math.min(60000, SWEEP_GAP * 10 * streak) : SWEEP_GAP));
+        }
+
+        sweeping = false;
+        btn.textContent = "🧹 กวาดทั้งคลัง";
+        $("dumpGo").disabled = false;
+        $("growGo").disabled = false;
+        await persist();
+
+        const added = catalog.length - started;
+        if (!sweepQueue.length) {
+          download(`detailed-targeting-${ACCT.replace(/^act_/, "")}-${catalog.length}.csv`, catalogCsv(catalog));
+          catalogNote(`กวาดครบทุกชุดแล้ว · รอบนี้ได้เพิ่ม <b>${added.toLocaleString()}</b> รายการ · ดาวน์โหลดไฟล์แล้ว`);
+        } else {
+          catalogNote(`หยุดไว้ก่อน · รอบนี้ได้เพิ่ม <b>${added.toLocaleString()}</b> รายการ · เหลือคิว ${sweepQueue.length.toLocaleString()} ชุด — เก็บไว้ให้แล้ว กดไปต่อได้ทุกเมื่อ`);
+        }
+      }
+
+      async function copyAiPrompt() {
+        const aud = readAud();
+        const txt = [
+          "คุณคือผู้เชี่ยวชาญการตั้งค่า detailed targeting ของ Facebook Ads",
+          "",
+          "ไฟล์ CSV ที่แนบมาคือคลัง detailed targeting ทั้งหมดที่บัญชีโฆษณานี้ใช้ได้",
+          "คอลัมน์: name, type, category, size_lower, size_upper",
+          "หมายเหตุ: size_* เป็นขนาดกลุ่มทั้งโลก ไม่ใช่เฉพาะคนไทย",
+          "",
+          `กลุ่มเป้าหมายที่ตั้งไว้แล้ว: อายุ ${aud.ageMin}-${aud.ageMax} · ${aud.gender === "all" ? "ทุกเพศ" : aud.gender === "female" ? "ผู้หญิง" : "ผู้ชาย"} · ${AREAS[aud.area].en}`,
+          "(อายุ เพศ พื้นที่ ตั้งไว้แล้ว ไม่ต้องเลือกให้)",
+          "",
+          "บรีฟ:",
+          $("brief").value.trim() || "<<< เขียนบรีฟตรงนี้ >>>",
+          "",
+          "ให้เลือก detailed targeting ที่เหมาะที่สุด 10-15 ตัว จากไฟล์ที่แนบ โดย:",
+          "1. ใช้ชื่อจากคอลัมน์ name เป๊ะตัวต่อตัว ห้ามแต่งเอง ห้ามแก้ตัวสะกด ห้ามแปล",
+          "2. เลี่ยงของที่คนไทยแทบไม่เล่น ถึง size_upper จะใหญ่ก็ตาม (เช่น American",
+          "   football ใหญ่ทั้งโลกแต่คนไทยหลักพัน) และอย่าตัดของที่ size_upper เล็กทิ้ง",
+          "   ถ้ามันเป็นเรื่องของคนไทยโดยตรง (เช่น มวยไทย ดาราไทย) เพราะเล็กทั้งโลก",
+          "   แต่เป็นคนไทยเกือบทั้งก้อน",
+          "3. เรียงจากตัวที่เกี่ยวที่สุดลงไป",
+          "",
+          "ตอบเป็นรายชื่อบรรทัดละหนึ่งชื่อเท่านั้น ไม่ต้องใส่เลขลำดับ ไม่ต้องอธิบาย",
+        ].join("\n");
+        try { await navigator.clipboard.writeText(txt); say("ก๊อปคำสั่งแล้ว — เอาไปวางใน ChatGPT/Gemini พร้อมแนบไฟล์ CSV"); }
+        catch { say("ก๊อปอัตโนมัติไม่ได้ — ลากคลุมแล้วกด Ctrl/Cmd+C", true); }
+      }
+
+      /** หาชื่อหนึ่งชื่อให้เจอตัวจริง — แคตตาล็อกก่อน ไม่เจอค่อยยิงถาม Meta */
+      async function resolveName(name) {
+        const k = nameKey(name);
+        if (!k) return { name, it: null, how: "", near: [] };
+        const local = catalogByName.get(k);
+        if (local) return { name, it: local, how: "แคตตาล็อก", near: [] };
+        let found = [];
+        try { found = await searchEverywhere(name, 25); } catch { /* ตัวนี้พลาด ตัวอื่นไปต่อ */ }
+        remember(found);
+        const exact = found.find((it) => nameKey(it.label) === k || nameKey(it.name) === k);
+        if (exact) return { name, it: exact, how: "ค้นเจอ", near: [] };
+        /* ไม่ตรงเป๊ะ = ไม่เอา · ตรงนี้คือด่านที่จับได้ว่าโมเดลแต่งชื่อหรือสะกดเพี้ยน
+           แต่บอกตัวที่ใกล้ที่สุดไว้ให้ด้วย คนจะได้ตัดสินใจเองได้ */
+        const near = found
+          .filter((it) => it.reachable !== false)
+          .sort((a, b) => b.sizeMax - a.sizeMax)
+          .slice(0, 2)
+          .map((it) => it.label || it.name);
+        return { name, it: null, how: "", near };
+      }
+
+      async function doPaste() {
+        if (!TOKEN) return;
+        const names = $("paste").value
+          .split(/[\n\r,;|]+/)
+          .map((x) => x.trim().replace(/^[-–—•*\d.)\s]+/, "").trim())
+          .filter((x) => x.length >= 2);
+        if (!names.length) { say("ยังไม่ได้วางชื่อมา", true); return; }
+
+        const btn = $("pasteGo");
+        btn.disabled = true;
+        say("");
+        $("pasteReport").innerHTML = "";
+
+        const ok = [], bad = [];
+        const seen = new Set();
+        for (let i = 0; i < names.length; i++) {
+          btn.textContent = `กำลังตรวจ… ${i + 1}/${names.length}`;
+          const r = await resolveName(names[i]);
+          if (r.it && !seen.has(r.it.id)) { seen.add(r.it.id); ok.push({ ...r.it, matchedTerms: [], score: 100 }); }
+          else if (!r.it) bad.push(r);
+        }
+
+        $("pasteReport").innerHTML =
+          `<div>✅ ตรงกับของจริง <b>${ok.length}</b> จาก ${names.length} ชื่อ</div>` +
+          (bad.length
+            ? `<div style="margin-top:6px"><span class="bad">หาไม่เจอ ${bad.length} ชื่อ</span> — ชื่อพวกนี้ไม่มีอยู่ในคลังของ Meta ตามที่สะกดมา:</div>` +
+              bad.map((b) => `<div class="foot" style="margin-left:10px">· <b>${esc(b.name)}</b>${b.near.length ? ` → ใกล้เคียงที่สุดคือ ${b.near.map((n) => `“${esc(n)}”`).join(" หรือ ")}` : ""}</div>`).join("")
+            : "");
+
+        if (ok.length) {
+          rows = await toEnglishNames(ok);
+          rowReach = {};
+          renderResults();
+          /* ขอเลขไทยให้ครบทุกตัว ไม่ใช่แค่ 12 แถวแรก — รายชื่อที่ AI เลือกมามีไม่กี่สิบ
+             และถ้าได้เลขไม่ครบจะเรียงตามขนาดไม่ได้ (ตัวที่ไม่มีเลขจะตกไปท้ายแถวทั้งที่
+             อาจเป็นตัวใหญ่สุด) เพดาน 60 กันกรณีวางมาเป็นร้อย */
+          await rowReachFor(rows, 60);
+          /* เรียงจากคนเยอะไปน้อย — แต่ห้ามเอาเลขไทยไปเทียบกับเลขทั้งโลกในชุดเดียวกัน
+             มันคนละหน่วย ตัวที่ยังไม่มีเลขไทยจะลอยขึ้นบนสุดทั้งที่ในไทยอาจไม่มีคน
+             จึงแยกเป็นสองกอง: มีเลขไทยขึ้นก่อน (เรียงตามเลขไทย) แล้วค่อยตามด้วย
+             ตัวที่วัดไม่ได้ (เรียงตามขนาดทั้งโลก) */
+          const thOf = (r) => { const t = rowReach[r.id]; return t && !t.error ? t.upper : 0; };
+          rows.sort((a, b) => {
+            const ta = thOf(a), tb = thOf(b);
+            if (ta && tb) return tb - ta;
+            if (ta !== tb) return tb ? 1 : -1;      // ตัวที่มีเลขไทยอยู่เหนือเสมอ
+            return (b.sizeMax || 0) - (a.sizeMax || 0);
+          });
+          /* เลือกมาเองแล้วจาก AI — ติ๊กให้หมดเลย ไม่ต้องมาไล่ติ๊กซ้ำ
+             ยกเว้นตัวที่คิดจำนวนคนไม่ได้ ซึ่งใส่ไปก็ทำให้ reach ทั้งตะกร้าพัง */
+          let n = 0;
+          for (const it of rows) {
+            if (it.reachable === false || rowReach[it.id]?.error) continue;
+            picked[it.id] = it; n++;
+          }
+          renderCart(); renderResults(); refreshTotal();
+          say(`ใส่ให้ ${n} ตัวแล้ว — ดูจำนวนคนรวมที่ช่อง Selection`);
+        } else {
+          rows = []; rowReach = {};
+          renderResults();
+        }
+        btn.disabled = false;
+        btn.textContent = "✅ ตรวจชื่อ แล้วคิดจำนวนคน";
+      }
+
+      async function doExpand() {
+        const main = Object.values(picked).filter((x) => !layer[x.id]);
+        const names = (main.length ? main : Object.values(picked)).map((x) => x.label || x.name);
+        if (!names.length) return;
+        $("expand").disabled = true;
+        try {
+          const j = await graph("search", { type: "adinterestsuggestion", interest_list: JSON.stringify(names.slice(0, 25)), limit: "50", locale: EN });
+          const fresh = toList(j).filter((x) => !picked[x.id]).map((x) => ({ ...x, matchedTerms: [], score: 35 }));
+          if (!fresh.length) say("Meta ไม่มีตัวใกล้เคียงอื่นให้แล้วสำหรับชุดนี้");
+          else { rows = fresh; rowReach = {}; renderResults(); rowReachFor(shownRows()); say(""); }
+        } catch (e) { say(e.message, true); }
+        $("expand").disabled = false;
+      }
+
+      async function copyBrief() {
+        const aud = readAud();
+        const main = Object.values(picked).filter((x) => !layer[x.id]);
+        const narrow = Object.values(picked).filter((x) => layer[x.id] === 1);
+        const txt = [
+          `Target: ${aud.gender === "all" ? "All genders" : aud.gender === "female" ? "Women" : "Men"} · ${aud.ageMin}–${aud.ageMax} · ${AREAS[aud.area].en}`,
+          `Must match any of: ${main.map((x) => x.label || x.name).join(", ")}`,
+          narrow.length ? `AND any of: ${narrow.map((x) => x.label || x.name).join(", ")}` : "",
+          totalReach && !totalReach.error ? `Estimated reach: ${people(totalReach.lower, totalReach.upper)} people` : "",
+        ].filter(Boolean).join("\n");
+        try { await navigator.clipboard.writeText(txt); say("คัดลอกก้อนบรีฟแล้ว"); }
+        catch { say("คัดลอกอัตโนมัติไม่ได้ — ลากคลุมข้อความแล้วกด Ctrl/Cmd+C", true); }
+      }
+
+      /* ============================================================
+         เชื่อมต่อ
+         ============================================================ */
+      async function connect() {
+        const t = $("token").value.trim();
+        if (!t) return say("วาง token ก่อน", true);
+        TOKEN = t;
+        $("tokenState").textContent = "กำลังตรวจ…";
+        try {
+          const j = await graph("me/adaccounts", { fields: "account_id,name", limit: "200" });
+          const list = (j.data || []).filter((a) => a.account_id);
+          if (!list.length) throw new Error("token นี้ไม่เห็นบัญชีโฆษณาสักบัญชี — ต้องมีสิทธิ์ ads_read และถูก assign บัญชีไว้");
+          const saved = localStorage.getItem(LS_ACCT) || "";
+          $("acct").innerHTML = list.map((a) => `<option value="act_${a.account_id}" ${`act_${a.account_id}` === saved ? "selected" : ""}>${esc(a.name || a.account_id)}</option>`).join("");
+          ACCT = $("acct").value;
+          $("tokenState").innerHTML = `✅ เชื่อมต่อแล้ว · เห็น ${list.length} บัญชี`;
+          $("go").disabled = false;
+          $("briefGo").disabled = false;
+          $("dumpGo").disabled = false;
+          $("growGo").disabled = false;
+          $("sweepGo").disabled = false;
+          $("saveGo").disabled = false;
+          $("pasteGo").disabled = false;
+          /* ซ่อน token ทันทีที่เชื่อมต่อผ่าน — ตอนวางต้องเห็นเพื่อเช็กว่าครบ
+             แต่หลังจากนั้นไม่ต้องเห็นแล้ว กันติดไปกับภาพแคปหน้าจอ */
+          $("token").type = "password";
+          if ($("remember").checked) localStorage.setItem(LS_TOKEN, TOKEN);
+          say("");
+          $("q").focus();
+        } catch (e) {
+          TOKEN = "";
+          $("go").disabled = true;
+          $("tokenState").innerHTML = `<span class="bad">❌ ${esc(e.message)}</span>`;
+        }
+      }
+
+      /* ============================================================
+         เริ่มทำงาน
+         ============================================================ */
+      $("area").innerHTML = Object.entries(AREAS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("");
+      $("connect").onclick = connect;
+      $("mask").onclick = () => {
+        const el = $("token");
+        el.type = el.type === "password" ? "text" : "password";
+      };
+      // บอกความยาวที่วางมา — คัดลอกไม่ครบคือสาเหตุ 401 ที่พบบ่อยที่สุด
+      $("token").oninput = () => {
+        const v = $("token").value.trim();
+        $("tokenState").textContent = v ? `${v.length} ตัวอักษร${v.startsWith("EAA") ? "" : " · ปกติขึ้นต้นด้วย EAA"}` : "";
+      };
+      $("go").onclick = doSearch;
+      $("briefGo").onclick = doDescribe;
+      $("dumpGo").onclick = dumpCatalog;
+      $("growGo").onclick = growCatalog;
+      $("sweepGo").onclick = sweepCatalog;
+      /* คลังอยู่ในหน่วยความจำอย่างเดียว ปิดแท็บแล้วหาย — ระหว่างไล่ลูกโซ่ยาว ๆ
+         ต้องคว้าไฟล์ออกมาได้ตลอดเวลาโดยไม่ต้องหยุดงาน */
+      $("saveGo").onclick = () => {
+        if (!catalog.length) { say("ยังไม่มีคลัง — กด 📥 ส่งออกแคตตาล็อก ก่อน", true); return; }
+        download(`detailed-targeting-${ACCT.replace(/^act_/, "")}-${catalog.length}.csv`, catalogCsv(catalog));
+        say(`บันทึก ${catalog.length.toLocaleString()} รายการแล้ว`);
+      };
+      $("promptGo").onclick = copyAiPrompt;
+      $("pasteGo").onclick = doPaste;
+      /* Enter เปล่าในช่องบรีฟต้องขึ้นบรรทัดใหม่ได้ตามปกติ — ใช้ Ctrl/Cmd+Enter สั่งค้นแทน
+         และต้องเป็นบล็อก ไม่ใช่ arrow ย่อ เพราะ handler แบบ on* ที่คืน false = ยกเลิก event */
+      $("brief").onkeydown = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) doDescribe(); };
+      /* ต้องเป็นบล็อก ไม่ใช่ arrow แบบย่อ — `onkeydown = (e) => cond && f()` คืนค่า
+         false ทุกปุ่มที่ไม่ใช่ Enter และ handler แบบ on* ที่คืน false = ยกเลิก event
+         ผลคือพิมพ์อะไรไม่ได้เลยทั้งช่อง (React ไม่สนค่าที่คืน แต่ DOM ตรง ๆ สน) */
+      $("q").onkeydown = (e) => {
+        if (e.key === "Enter") doSearch();
+      };
+      $("token").onkeydown = (e) => {
+        if (e.key === "Enter") connect();
+      };
+      $("acct").onchange = () => { ACCT = $("acct").value; localStorage.setItem(LS_ACCT, ACCT); rowReach = {}; renderResults(); refreshTotal(); };
+      ["ageMin", "ageMax", "gender", "area"].forEach((id) => ($(id).onchange = () => { rowReach = {}; renderResults(); refreshTotal(); rowReachFor(shownRows()); }));
+      ["hideWeak", "hideSmall"].forEach((id) => ($(id).onchange = renderResults));
+
+      restoreCatalog();
+      /* กันเผลอปิดแท็บตอนกำลังกวาด — ถ้าเก็บถาวรไม่ได้ ของที่ได้มาจะหายทั้งหมด */
+      window.addEventListener("beforeunload", (e) => {
+        if (!sweeping && !growing) return;
+        e.preventDefault();
+        e.returnValue = "";
+      });
+      const savedToken = localStorage.getItem(LS_TOKEN);
+      if (savedToken) { $("token").value = savedToken; $("remember").checked = true; connect(); }
+      renderCart();
+    </script>
+  </body>
+</html>
